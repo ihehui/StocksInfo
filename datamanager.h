@@ -23,22 +23,30 @@ public:
 
 signals:
     void historicalDataRead(Stock * stock);
+//    void realTimeAskDataUpdated(Stock * stock);
+    void realTimeAskDataUpdated(const RealTimeData &data);
+
 //    void historicalDataRead(const QString &stockCode);
     void requestDownloadData(const QString &url);
+    void requestRealTimeAskData(const QString &url);
+
 
 public slots:
 
     //读取交易数据
     bool readHistoricalData(QString *code, int offset = 0);
 
-    //下载交易数据
-    bool downloadData(const QString &code);
-    void dataDownloaded(const QString &fileName, const QUrl &url);
+    //下载历史交易数据
+    void downloadHistoricalData(const QString &code);
+    void historicalDataDownloaded(const QString &fileName, const QUrl &url);
+
+    //实时行情数据
+    void downloadRealTimeAskData(const QString &code);
+    void realTimeAskDataReceived(const QByteArray &data);
 
 private slots:
     //TODO:MUTEX
     void readStocksList();
-    void updateStocksAskInfo(const QString & jsonString);
     void updateStocksSummaryInfo(const QString & jsonString);
 
 protected:

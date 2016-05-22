@@ -67,7 +67,7 @@ bool DataManager::readHistoricalData(QString *code, int offset){
 
     QFile file(m_localSaveDir+"/"+newCode+".csv");
     if(!file.exists()){
-        downloadData(newCode);
+        downloadHistoricalData(newCode);
         return false;
     }
     if(!file.open(QIODevice::ReadOnly|QIODevice::Text)){
@@ -158,7 +158,7 @@ bool DataManager::readHistoricalData(QString *code, int offset){
     return true;
 }
 
-bool DataManager::downloadData(const QString &code){
+void DataManager::downloadHistoricalData(const QString &code){
     qDebug()<<"-----DataManager::downloadData(...)"<<" currentThreadId:"<<QThread::currentThreadId();
 
     //m_downloadManager->append(QUrl(QString("http://quotes.money.163.com/service/chddata.html?code=%1&start=20000720&end=20150508")));
@@ -167,15 +167,73 @@ bool DataManager::downloadData(const QString &code){
     emit requestDownloadData(url);
 
 //    m_downloadManager->append();
-    return true;
 }
 
-void DataManager::dataDownloaded(const QString &fileName, const QUrl &url){
+void DataManager::historicalDataDownloaded(const QString &fileName, const QUrl &url){
     qDebug()<<"---DataManager::dataDownloaded(...)"<<" fileName:"<<fileName<<" currentThreadId:"<<QThread::currentThreadId();
     QFileInfo fi(fileName);
     QString code = fi.baseName();
 
     readHistoricalData(&code, 0);
+}
+
+void DataManager::downloadRealTimeAskData(const QString &code){
+    //API:http://api.money.126.net/data/feed/1000001,money.api
+    QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api").arg(code.startsWith("6")?"0":"1").arg(code);
+    emit requestRealTimeAskData(url);
+}
+
+void DataManager::realTimeAskDataReceived(const QByteArray &data){
+    //API:http://api.money.126.net/data/feed/1000001,money.api
+    if(data.isEmpty()){return;}
+
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if(error.error != QJsonParseError::NoError){
+        qCritical()<<error.errorString();
+        return;
+    }
+    QJsonObject object = doc.object();
+    if(object.isEmpty()){return;}
+
+    QString code = object["symbol"].toString();
+    Stock *stock = m_allStocks->value(code);
+    if(!stock){return;}
+
+    RealTimeData rtData;
+    rtData.code = code;
+    rtData.time = object["time"].toString();
+    rtData.ask1 = object["ask1"].toDouble();
+    rtData.ask2 = object["ask2"].toDouble();
+    rtData.ask3 = object["ask3"].toDouble();
+    rtData.ask4 = object["ask4"].toDouble();
+    rtData.ask5 = object["ask5"].toDouble();
+    rtData.askVol1 = object["askvol1"].toDouble();
+    rtData.askVol2 = object["askvol2"].toDouble();
+    rtData.askVol3 = object["askvol3"].toDouble();
+    rtData.askVol4 = object["askvol4"].toDouble();
+    rtData.askVol5 = object["askvol5"].toDouble();
+    rtData.bid1 = object["bid1"].toDouble();
+    rtData.bid2 = object["bid2"].toDouble();
+    rtData.bid3 = object["bid3"].toDouble();
+    rtData.bid4 = object["bid4"].toDouble();
+    rtData.bid5 = object["bid5"].toDouble();
+    rtData.bidVol1 = object["bidvol1"].toDouble();
+    rtData.bidVol2 = object["bidvol2"].toDouble();
+    rtData.bidVol3 = object["bidvol3"].toDouble();
+    rtData.bidVol4 = object["bidvol4"].toDouble();
+    rtData.bidVol5 = object["bidvol5"].toDouble();
+    rtData.open = object["open"].toDouble();
+    rtData.high = object["high"].toDouble();
+    rtData.low = object["low"].toDouble();
+    rtData.price = object["price"].toDouble();
+    rtData.change = object["updown"].toDouble();
+    rtData.changePercent = object["percent"].toDouble();
+    rtData.volume_Hand = object["volume"].toDouble();
+    rtData.turnover = object["turnover"].toDouble();
+
+    emit realTimeAskDataUpdated(rtData);
+
 }
 
 void DataManager::readStocksList(){
@@ -210,9 +268,7 @@ void DataManager::readStocksList(){
     }
 }
 
-void DataManager::updateStocksAskInfo(const QString & jsonString){
 
-}
 
 void DataManager::updateStocksSummaryInfo(const QString & jsonString){
 

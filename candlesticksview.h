@@ -17,6 +17,7 @@ public:
     ~CandlesticksView();
 
     void setDataManager(DataManager *manager);
+    Stock * currentStock();
 
 signals:
     void historicalDataRequested(QString *code, int offset);

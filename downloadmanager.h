@@ -69,18 +69,24 @@ public slots:
     void append(const QUrl &url);
     void append(const QString &url);
     void append(const QStringList &urlList);
+
+    void requestRealTimeAskData(const QString &url);
+
     QString saveFileName(const QUrl &url);
     void setLocalSaveDir(const QString &path);
 
 signals:
     void finished();
     void dataDownloaded(const QString &fileName, const QUrl &url);
+    void realTimeAskDataReceived(const QByteArray &data);
 
 private slots:
     void startNextDownload();
     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void downloadFinished();
     void downloadReadyRead();
+
+    void realTimeAskDataDownloadFinished();
 
 private:
     QMutex mutex;
@@ -97,6 +103,9 @@ private:
     bool overwriteoldFile;
     QString localSaveDir;
     QString curFileName;
+
+    QNetworkReply *currentRealTimeAskDataReply;
+
 
 };
 

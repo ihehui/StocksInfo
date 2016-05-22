@@ -73,6 +73,10 @@ void CandlesticksView::setDataManager(DataManager *manager){
     //connect(this, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 }
 
+Stock * CandlesticksView::currentStock(){
+    return m_curStock;
+}
+
 void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
     if(!m_curStock){return;}
 
@@ -592,4 +596,6 @@ void CandlesticksView::showCandlesticks(const QString &code){
         emit historicalDataRequested(&m_stockCodeExpected, 0);
     }
 }
+
+
 

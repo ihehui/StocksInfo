@@ -22,12 +22,13 @@ TradeExtraData::TradeExtraData(uint key, double preClose, double volume_Hand, do
 }
 
 RealTimeData::RealTimeData(){
+    code = "";
     time = "";
     ask1=ask2=ask3=ask4=ask5=0;
     askVol1=askVol2=askVol3=askVol4=askVol5=0;
     bid1=bid2=bid3=bid4=bid5=0;
     bidVol1=bidVol2=bidVol3=bidVol4=bidVol5=0;
-    open=high=low=price=changePercent=0;
+    open=high=low=price=change=changePercent=0;
     volume_Hand=turnover=0;
 }
 
@@ -44,13 +45,13 @@ Stock::Stock(const QString &code, const QString &name, QObject *parent)
     m_tradeExtraData = new QMap<double, TradeExtraData>();
     m_futuresDeliveryDates = new QVector<double>();
 
-    m_realTimeData = new RealTimeData();
+//    m_realTimeData = new RealTimeData();
 }
 
 Stock::~Stock(){
     delete m_ohlcData; //May be deleted by QCPFinancial
     delete m_tradeExtraData;
-    delete m_realTimeData;
+    //delete m_realTimeData;
 }
 
 QString Stock::code() const{
@@ -79,9 +80,9 @@ QVector<double> * Stock::futuresDeliveryDates(){
     return m_futuresDeliveryDates;
 }
 
-RealTimeData * Stock::realTimeData(){
-    return m_realTimeData;
-}
+//RealTimeData * Stock::realTimeData(){
+//    return m_realTimeData;
+//}
 
 void Stock::clear(){
     QMutexLocker locker(&mutex);

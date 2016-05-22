@@ -95,6 +95,15 @@ void DownloadManager::append(const QString &url){
     append(QUrl::fromEncoded(url.toLocal8Bit()));
 }
 
+void DownloadManager::requestRealTimeAskData(const QString &url){
+    QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
+    currentRealTimeAskDataReply = manager.get(request);
+    connect(currentRealTimeAskDataReply, SIGNAL(finished()), SLOT(realTimeAskDataDownloadFinished()));
+
+}
+
+
+
 QString DownloadManager::saveFileName(const QUrl &url)
 {
     QString path = url.path();
@@ -227,10 +236,13 @@ void DownloadManager::downloadReadyRead()
         curFileName = filename;
     }
 
-
-//    qDebug()<<"------------header:"<<currentDownload->header(QNetworkRequest::ContentDispositionHeader).toString();
-    //qDebug()<<"------------header:"<<currentDownload->rawHeaderList();
-//    qDebug()<<"------------header:"<<currentDownload->rawHeader("Content-Disposition");
-
     output.write(currentDownload->readAll());
+}
+
+void DownloadManager::realTimeAskDataDownloadFinished(){
+    if(currentRealTimeAskDataReply->error() == QNetworkReply::NoError){
+        emit realTimeAskDataReceived(currentRealTimeAskDataReply->readAll());
+    }
+
+    currentRealTimeAskDataReply->deleteLater();
 }
