@@ -65,6 +65,7 @@ class DownloadManager: public QObject
 public:
     DownloadManager(QObject *parent = 0);
 
+public slots:
     void append(const QUrl &url);
     void append(const QString &url);
     void append(const QStringList &urlList);
@@ -82,6 +83,8 @@ private slots:
     void downloadReadyRead();
 
 private:
+    QMutex mutex;
+
     QNetworkAccessManager manager;
     QQueue<QUrl> downloadQueue;
     QNetworkReply *currentDownload;

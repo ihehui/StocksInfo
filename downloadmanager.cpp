@@ -59,6 +59,7 @@
 #include <QDir>
 #include <QApplication>
 #include <stdio.h>
+#include <QThread>
 
 DownloadManager::DownloadManager(QObject *parent)
     : QObject(parent),
@@ -75,12 +76,14 @@ void DownloadManager::append(const QStringList &urlList)
     foreach (QString url, urlList)
         append(QUrl::fromEncoded(url.toLocal8Bit()));
 
-    if (downloadQueue.isEmpty())
-        QTimer::singleShot(0, this, SIGNAL(finished()));
+    //if (downloadQueue.isEmpty())
+    //   QTimer::singleShot(0, this, SIGNAL(finished()));
 }
 
 void DownloadManager::append(const QUrl &url)
 {
+    QMutexLocker locker(&mutex);
+
     if (downloadQueue.isEmpty())
         QTimer::singleShot(0, this, SLOT(startNextDownload()));
 
@@ -127,6 +130,9 @@ void DownloadManager::setLocalSaveDir(const QString &path){
 
 void DownloadManager::startNextDownload()
 {
+    qDebug()<<"DownloadManager:"<<QThread::currentThreadId();
+    QMutexLocker locker(&mutex);
+
     curFileName = "";
     if (downloadQueue.isEmpty()) {
         printf("%d/%d files downloaded successfully\n", downloadedCount, totalCount);
@@ -162,6 +168,8 @@ void DownloadManager::startNextDownload()
 
 void DownloadManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
+    qDebug()<<"DownloadManager::downloadProgress:"<<QThread::currentThreadId();
+
     // calculate the download speed
     double speed = bytesReceived * 1000.0 / downloadTime.elapsed();
     QString unit;
@@ -175,7 +183,7 @@ void DownloadManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
         unit = "MB/s";
     }
 
-    qDebug()<<QString::fromLatin1("%1 %2").arg(speed, 3, 'f', 1).arg(unit);
+    qDebug()<<QString::fromLatin1("%1% %2").arg(speed, 3, 'f', 1).arg(unit);
 }
 
 void DownloadManager::downloadFinished()
@@ -198,6 +206,7 @@ void DownloadManager::downloadFinished()
 
 void DownloadManager::downloadReadyRead()
 {
+
     if(curFileName.trimmed().isEmpty()){
         QString header = QString(currentDownload->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
         QString filename = localSaveDir + "/" + header;

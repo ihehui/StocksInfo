@@ -1,18 +1,20 @@
 #include "candlesticksview.h"
-#include "tradeinfo.h"
+#include "stock.h"
 
 
 CandlesticksView::CandlesticksView(QWidget *parent)
     : QCustomPlot(parent)
 {
+    qDebug()<<"CandlesticksView:"<<QThread::currentThreadId();
 
     m_dataManager = 0;
+    m_curStock = 0;
     m_stockCode = "";
     m_stockName = "";
-    m_periodType = PERIOD_ONE_DAY; //日线
+    m_stockCodeExpected = "";
 
-    m_ohlcData = 0;
-    m_tradeExtraData = 0;
+    m_ohlcDataMap = 0;
+    m_tradeExtraDataMap = 0;
 
     m_plotTitle = 0;
     m_candlesticks = 0;
@@ -67,12 +69,12 @@ void CandlesticksView::setDataManager(DataManager *manager){
     if(!manager){return;}
     m_dataManager = manager;
     //m_stockCode = m_allStocks.first();
-    connect(m_dataManager, SIGNAL(historicalDataRead(QString)), this, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
-    connect(this, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
+    //connect(m_dataManager, SIGNAL(historicalDataRead(QString)), this, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
+    //connect(this, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 }
 
 void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     if(!m_infoView){
         setInfoViewVisible(true);
@@ -95,28 +97,28 @@ void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
 }
 
 void CandlesticksView::mousePressEvent(QMouseEvent *event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     Q_UNUSED(event)
     //qDebug()<<QString("--mousePressEvent--");
 }
 
 void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     updateTradeInfoView(event->pos());
     //qDebug()<<QString("--mouseMoveEvent--");
 }
 
 void CandlesticksView::mouseReleaseEvent(QMouseEvent *event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     Q_UNUSED(event)
     //qDebug()<<QString("--mouseReleaseEvent--");
 }
 
 void CandlesticksView::wheelEvent(QWheelEvent* event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     int wheelSteps = event->delta()/120.0;
     if(event->modifiers() == Qt::ControlModifier){
@@ -132,14 +134,15 @@ void CandlesticksView::wheelEvent(QWheelEvent* event){
     }
 
     Q_ASSERT(m_dataManager);
-    m_candlesticks->clearData();
-    m_dataManager->readHistoricalData(&m_stockCode, -wheelSteps);
-    //emit historicalDataRequested(code, wheelSteps);
+    //m_candlesticks->clearData();
+    //m_dataManager->readHistoricalData(&m_stockCode, -wheelSteps);
+    m_stockCodeExpected = m_stockCode;
+    emit historicalDataRequested(&m_stockCodeExpected, -wheelSteps);
 
 }
 
 void CandlesticksView::keyPressEvent(QKeyEvent *event){
-    if(!m_ohlcData || m_ohlcData->isEmpty()){return;}
+    if(!m_curStock){return;}
 
     switch (event->key()) {
     case Qt::Key_Escape:
@@ -168,13 +171,13 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
         setInfoViewVisible(true);
 
         //左右箭头：左右移动十字光标，按住SHIFT平移
-        if((event->key() == Qt::Key_Left && m_focusedKey == m_tradeExtraData->firstKey())
-                || (event->key() == Qt::Key_Right && m_focusedKey == m_tradeExtraData->lastKey())
+        if((event->key() == Qt::Key_Left && m_focusedKey == m_tradeExtraDataMap->firstKey())
+                || (event->key() == Qt::Key_Right && m_focusedKey == m_tradeExtraDataMap->lastKey())
                 ){
             return;
         }
 
-        TradeExtraDataMap::const_iterator curkeyIT = m_tradeExtraData->lowerBound(m_focusedKey);
+        QMap<double, TradeExtraData>::const_iterator curkeyIT = m_tradeExtraDataMap->lowerBound(m_focusedKey);
         curkeyIT = (event->key() == Qt::Key_Left)?(--curkeyIT):(++curkeyIT);
         m_focusedKey = curkeyIT.key();
         if((event->key() == Qt::Key_Left) && m_focusedKey < m_leftKey){
@@ -184,9 +187,9 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
             m_focusedKey = m_rightKey;
         }
 
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraData->value(m_leftKey).time).toString("L: MM-dd");
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraData->value(m_focusedKey).time).toString("C: MM-dd");
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraData->value(m_rightKey).time).toString("R: MM-dd");
+        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_leftKey).time).toString("L: MM-dd");
+        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_focusedKey).time).toString("C: MM-dd");
+        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_rightKey).time).toString("R: MM-dd");
 
         //移动坐标轴
         if(event->modifiers() == Qt::ShiftModifier
@@ -208,7 +211,7 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
             m_infoView->move(0, 0);
             m_focusedKey = m_rightKey;
         }
-        QCPFinancialData ohlcData = m_ohlcData->value(m_focusedKey);
+        QCPFinancialData ohlcData = m_ohlcDataMap->value(m_focusedKey);
         if(isZero(ohlcData.open)){return;}
         updateTradeInfoView(m_focusedKey, ohlcData.close);
 
@@ -290,7 +293,7 @@ void CandlesticksView::setAxisRange2(const QCPRange &newRange, const QCPRange &o
             // xAxis->setRangeLower(leftBoxRange.upper);
         }
 
-        double minX = m_tradeExtraData->firstKey() - m_candlesticks->width();
+        double minX = m_tradeExtraDataMap->firstKey() - m_candlesticks->width();
         if(lower < minX){
             lower = minX;
         }
@@ -325,10 +328,10 @@ void CandlesticksView::setAxisRange(){
     double leftBoxRangeUpper = m_leftKey+m_candlesticks->width()*0.5;
     double rightBoxRangeLlower = m_rightKey-m_candlesticks->width()*0.5;
     double rightBoxRangeUpper = m_rightKey+m_candlesticks->width()*0.5;
-    if( ((m_leftKey == m_tradeExtraData->firstKey()) && (xAxisLower < leftBoxRangeLlower))){
+    if( ((m_leftKey == m_tradeExtraDataMap->firstKey()) && (xAxisLower < leftBoxRangeLlower))){
         xAxis->setRangeLower(leftBoxRangeLlower);
     }
-    if(m_rightKey == m_tradeExtraData->lastKey() && xAxisUpper > rightBoxRangeUpper){
+    if(m_rightKey == m_tradeExtraDataMap->lastKey() && xAxisUpper > rightBoxRangeUpper){
         xAxis->setRangeUpper(rightBoxRangeUpper);
     }
 
@@ -493,9 +496,9 @@ void CandlesticksView::updateTradeInfoView(double curKey, double curValue, bool 
     if(!m_infoView){return;}
     if(!m_infoView->isVisible() && !updateWhenInvisible){return;}
 
-    QCPFinancialData ohlcData = m_ohlcData->value(m_focusedKey);
+    QCPFinancialData ohlcData = m_ohlcDataMap->value(m_focusedKey);
     if(ohlcData.open == 0){return;}
-    TradeExtraData extraData = m_tradeExtraData->value(m_focusedKey);
+    TradeExtraData extraData = m_tradeExtraDataMap->value(m_focusedKey);
     m_infoView->updateTradeInfo(ohlcData, extraData, curValue, m_stockName);
 //    xAxis->setCrossCurvePoint(m_focusedKey, curValue);
 //    yAxis->setCrossCurvePoint(m_focusedKey, curValue);
@@ -536,11 +539,11 @@ void CandlesticksView::setInfoViewVisible(bool visible){
 }
 
 void CandlesticksView::updateVolumeYAxisRange(){
-    if(m_ohlcData->isEmpty()){return;}
+    if(m_ohlcDataMap->isEmpty()){return;}
 
     double maxYValue = std::numeric_limits<double>::min();
-    TradeExtraDataMap::const_iterator leftkeyIT = m_tradeExtraData->lowerBound(m_leftKey);
-    TradeExtraDataMap::const_iterator rightkeyIT = m_tradeExtraData->lowerBound(m_rightKey);
+    TradeExtraDataMap::const_iterator leftkeyIT = m_tradeExtraDataMap->lowerBound(m_leftKey);
+    TradeExtraDataMap::const_iterator rightkeyIT = m_tradeExtraDataMap->lowerBound(m_rightKey);
     TradeExtraDataMap::const_iterator it;
     for (it = leftkeyIT; it != rightkeyIT; ++it)
     {
@@ -553,26 +556,30 @@ void CandlesticksView::updateVolumeYAxisRange(){
     m_volumeLeftAxis->setRange(0, maxYValue);
 }
 
-void CandlesticksView::historicalDataRead(const QString &code){
-    if(code != m_stockCode){return;}
-    //m_candlesticks->clearData();
-    m_ohlcData = m_dataManager->ohlcData();
-    m_candlesticks->setData(m_ohlcData, false);
+void CandlesticksView::historicalDataRead(Stock *stock){
+    Q_ASSERT(stock);
+    if(!stock || stock->code() != m_stockCodeExpected){return;}
+    m_curStock = stock;
+    m_stockCode = stock->code();
+    m_stockName = stock->name();
 
-    QVector< double > * futuresDeliveryDates = m_dataManager->futuresDeliveryDates();
+    m_ohlcDataMap = stock->ohlcDataMap();
+    m_candlesticks->setData(m_ohlcDataMap, false);
+
+    QVector< double > * futuresDeliveryDates = stock->futuresDeliveryDates();
     xAxis->setTickVector(*futuresDeliveryDates);
 
-    m_tradeExtraData = m_dataManager->tradeExtraData();
+    m_tradeExtraDataMap = stock->tradeExtraDataMap();
 
-    for(TradeExtraDataMap::const_iterator it = m_tradeExtraData->constBegin(); it!=m_tradeExtraData->constEnd(); it++){
-        QCPFinancialData ohlcData = m_ohlcData->value(it.key());
+    for(QMap<double, TradeExtraData>::const_iterator it = m_tradeExtraDataMap->constBegin(); it!=m_tradeExtraDataMap->constEnd(); it++){
+        QCPFinancialData ohlcData = m_ohlcDataMap->value(it.key());
         TradeExtraData extraData = it.value();
         (ohlcData.close < ohlcData.open ? m_volumeNeg : m_volumePos)->addData(it.key(), (extraData.volume_Hand));
     }
 
     rescaleAxes();
     xAxis->scaleRange(0.015, xAxis->range().upper);
-    m_focusedKey = m_tradeExtraData->lastKey();
+    m_focusedKey = m_tradeExtraDataMap->lastKey();
 
     replot();
 }
@@ -581,8 +588,8 @@ void CandlesticksView::showCandlesticks(const QString &code){
     if(code != m_stockCode){
         m_stockCode = code;
         //m_dataManager->readHistoricalData(&m_stockCode, wheelSteps);
-
-        emit historicalDataRequested(&m_stockCode, 0);
+        m_stockCodeExpected = code;
+        emit historicalDataRequested(&m_stockCodeExpected, 0);
     }
 }
 

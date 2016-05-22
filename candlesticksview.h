@@ -63,19 +63,22 @@ private slots:
     void updateVolumeYAxisRange();
 
 public slots:
-    void historicalDataRead(const QString &code);
+    void historicalDataRead(Stock *stock);
     void showCandlesticks(const QString &code);
 
 
 private:
     DataManager *m_dataManager;
+    Stock *m_curStock;
     QString m_stockCode; //证券代码
     QString m_stockName; //证券名称
+    QString m_stockCodeExpected; //证券代码
 
-    PeriodType m_periodType; //数据周期类型
-    QCPFinancialDataMap *m_ohlcData; //基本交易数据
+
+//    PeriodType m_periodType; //数据周期类型
+    QCPFinancialDataMap *m_ohlcDataMap; //基本交易数据
     typedef QMap<double, TradeExtraData> TradeExtraDataMap;
-    TradeExtraDataMap *m_tradeExtraData; //交易数据
+    TradeExtraDataMap *m_tradeExtraDataMap; //交易数据
 
     QCPPlotTitle *m_plotTitle;
     QCPFinancial *m_candlesticks; //绘图类

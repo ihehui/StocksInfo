@@ -1,47 +1,58 @@
 #include "datamanager.h"
 
 #include "qcustomplot.h"
-#include "tradeinfo.h"
-#include "common.h"
+#include "stock.h"
 
-#include "downloadmanager.h"
+//#include "downloadmanager.h"
 
 
-QMap<QString, QString> DataManager::m_allStocksMap = QMap<QString, QString>();
 
-DataManager::DataManager(QObject *parent) : QThread(parent)
+DataManager::DataManager(QObject *parent) : QObject(parent)
 {
-    m_stockCode = "";
-    m_stockName = "";
+    m_allStocks = new QMap<QString, Stock*>();
+    readStocksList();
 
-    m_ohlcData = new QMap<double, QCPFinancialData>();
-    m_tradeExtraData = new QMap<double, TradeExtraData>();
-
-    if(m_allStocksMap.isEmpty()){
-        readStocksList();
-    }
-
-    m_downloadManager = new DownloadManager(this);
-    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(dataDownloaded(const QString &, const QUrl &)));
+//    m_downloadManager = new DownloadManager(this);
+//    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(dataDownloaded(const QString &, const QUrl &)));
 
     m_localSaveDir = QApplication::applicationDirPath()+"/data";
+    qDebug()<<"DataManager0:"<<QThread::currentThreadId();
+
 }
 
 DataManager::~DataManager(){
+    qDebug()<<"DataManager::~DataManager()";
+
 //    delete m_ohlcData; //deleted by QCPFinancial
-    delete m_tradeExtraData;
-    delete m_downloadManager;
+//    delete m_tradeExtraData;
+//    delete m_downloadManager;
+
+    qDeleteAll(m_allStocks->begin(), m_allStocks->end());
+    delete m_allStocks;
+
+}
+
+Stock * DataManager::stock(const QString &code){
+    Stock *stock = m_allStocks->value(code);
+    if(!stock){
+        qDebug()<<QString("Stock '%1' Not Found!").arg(code);
+    }
+    return stock;
 }
 
 bool DataManager::readHistoricalData(QString *code, int offset){
+    qDebug()<<"DataManager-readHistoricalData:"<<QThread::currentThreadId();
+
+    QMutexLocker locker(&mutex);
+
     if(!code){return false;}
     QString newCode = *code;
 
-    int size = m_allStocksMap.size();
+    int size = m_allStocks->size();
     int newOffset = offset%size;
-    if(!m_allStocksMap.contains(newCode)){return false;}
+    if(!m_allStocks->contains(newCode)){return false;}
     if(newOffset){
-        QStringList allStocks = m_allStocksMap.keys();
+        QStringList allStocks = m_allStocks->keys();
         int index = allStocks.indexOf(newCode);
         index += newOffset;
 
@@ -64,6 +75,12 @@ bool DataManager::readHistoricalData(QString *code, int offset){
         return false;
     }
 
+    Stock *stock = m_allStocks->value(newCode);
+    if(!stock){
+        stock = new Stock(newCode, "");
+        m_allStocks->insert(newCode, stock);
+    }
+
     QTextStream in(&file);
     //表头
     QString title = in.readLine();
@@ -72,12 +89,9 @@ bool DataManager::readHistoricalData(QString *code, int offset){
     }
     qDebug()<<title;
 
-    m_stockCode = newCode;
-    m_stockName = "";
-    m_ohlcData->clear();
-    m_tradeExtraData->clear();
-    m_futuresDeliveryDates.clear();
-
+    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
+    QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
+    QVector<double> *futuresDeliveryDates = stock->futuresDeliveryDates();
 
     QVector< double >timeVector, openVector, highVector, lowVector, closeVector, volVector;
     uint index = (std::numeric_limits<uint>::max)();
@@ -86,10 +100,6 @@ bool DataManager::readHistoricalData(QString *code, int offset){
         if(dataList.size()<12){
             qDebug()<<"Invalid column count!";
             return false;
-        }
-
-        if(m_stockName.isEmpty()){
-            m_stockName = dataList.at(2);
         }
 
         double open = dataList.at(6).toDouble();
@@ -111,7 +121,7 @@ bool DataManager::readHistoricalData(QString *code, int offset){
                 firstFridy = 5-dayofWeek+1;
             }
             if(date.day() == firstFridy+14){
-                m_futuresDeliveryDates.append(index);
+                futuresDeliveryDates->append(index);
             }
         }
 
@@ -134,28 +144,34 @@ bool DataManager::readHistoricalData(QString *code, int offset){
         double turnover = dataList.at(12).toDouble();
         double turnoverRate = dataList.at(10).toDouble();
 
-        m_ohlcData->insert(index, QCPFinancialData(index, open, high, low, close));
-        m_tradeExtraData->insert(index, TradeExtraData(time_t, preClose, volume_Hand, turnover, turnoverRate));
+        ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
+        tradeExtraDataMap->insert(index, TradeExtraData(time_t, preClose, volume_Hand, turnover, turnoverRate));
 
         //数据文件为倒序。不可使用日期做KEY，日期有空档。
         index--;
         qApp->processEvents();
     }
 
-    emit historicalDataRead(newCode);
+//    emit historicalDataRead(newCode);
+    emit historicalDataRead(stock);
 
     return true;
 }
 
 bool DataManager::downloadData(const QString &code){
-    qDebug()<<"-----DataManager::downloadData(...)";
+    qDebug()<<"-----DataManager::downloadData(...)"<<" currentThreadId:"<<QThread::currentThreadId();
+
     //m_downloadManager->append(QUrl(QString("http://quotes.money.163.com/service/chddata.html?code=%1&start=20000720&end=20150508")));
-    m_downloadManager->append(QUrl(QString("http://quotes.money.163.com/service/chddata.html?code=%1%2").arg(code.startsWith("6")?"0":"1").arg(code)));
+
+    QString url = QString("http://quotes.money.163.com/service/chddata.html?code=%1%2").arg(code.startsWith("6")?"0":"1").arg(code);
+    emit requestDownloadData(url);
+
+//    m_downloadManager->append();
     return true;
 }
 
 void DataManager::dataDownloaded(const QString &fileName, const QUrl &url){
-    qDebug()<<"---DataManager::dataDownloaded(...)"<<" fileName:"<<fileName;
+    qDebug()<<"---DataManager::dataDownloaded(...)"<<" fileName:"<<fileName<<" currentThreadId:"<<QThread::currentThreadId();
     QFileInfo fi(fileName);
     QString code = fi.baseName();
 
@@ -163,13 +179,18 @@ void DataManager::dataDownloaded(const QString &fileName, const QUrl &url){
 }
 
 void DataManager::readStocksList(){
-    m_allStocksMap.clear();
+    QMutexLocker locker(&mutex);
+
+
+    qDeleteAll(m_allStocks->begin(), m_allStocks->end());
+    m_allStocks->clear();
 
     QFile file(QApplication::applicationDirPath()+"/data/AllStocks.csv");
     if(!file.open(QIODevice::ReadOnly|QIODevice::Text)){
         qDebug()<<file.errorString();
-        m_allStocksMap.insert("000001", "\345\271\263\345\256\211\351\223\266\350\241\214");
-        m_allStocksMap.insert("000002", "\344\270\207  \347\247\221\357\274\241");
+        //For Test
+        m_allStocks->insert("000001", new Stock("000001", "\345\271\263\345\256\211\351\223\266\350\241\214"));
+        m_allStocks->insert("000002", new Stock("000002", "\344\270\207  \347\247\221\357\274\241"));
         return;
     }
 
@@ -179,17 +200,25 @@ void DataManager::readStocksList(){
         if(dataList.size()!=2){
             continue;
         }
-        m_allStocksMap.insert(dataList.at(0), dataList.at(1));
+        m_allStocks->insert(dataList.at(0), new Stock(dataList.at(0), dataList.at(1)));
     }
 
-    if(m_allStocksMap.isEmpty()){
-        m_allStocksMap.insert("000001", "\345\271\263\345\256\211\351\223\266\350\241\214");
-        m_allStocksMap.insert("000002", "\344\270\207  \347\247\221\357\274\241");
+    if(m_allStocks->isEmpty()){
+        //For Test
+        m_allStocks->insert("000001", new Stock("000001", "\345\271\263\345\256\211\351\223\266\350\241\214"));
+        m_allStocks->insert("000002", new Stock("000002", "\344\270\207  \347\247\221\357\274\241"));
     }
+}
 
+void DataManager::updateStocksAskInfo(const QString & jsonString){
 
 }
 
+void DataManager::updateStocksSummaryInfo(const QString & jsonString){
+
+}
+
+
 void DataManager::run(){
-    exec();
+//    exec();
 }

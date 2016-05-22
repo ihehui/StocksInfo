@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "datamanager.h"
+#include "downloadmanager.h"
 
 namespace Ui {
 class MainWindow;
@@ -19,7 +20,10 @@ public:
 private:
     Ui::MainWindow *ui;
 
+    DownloadManager *m_downloadManager;
     DataManager *m_dataManager;
+
+    QThread m_dataManagerThread, m_downloadManagerThread;
 
 
 };

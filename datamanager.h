@@ -4,7 +4,7 @@
 #include <QThread>
 #include <QMap>
 #include <QVector>
-
+#include "stock.h"
 
 
 class QCPFinancialData;
@@ -12,21 +12,19 @@ class TradeExtraData;
 class DownloadManager;
 
 
-class DataManager : public QThread
+class DataManager : public QObject
 {
     Q_OBJECT
 public:
     explicit DataManager(QObject *parent = 0);
     ~DataManager();
 
-    QMap<double, QCPFinancialData> * ohlcData() {return m_ohlcData;}
-    QMap<double, TradeExtraData> * tradeExtraData() const {return m_tradeExtraData;}
-    static QMap<QString, QString> * allStocks() {return &m_allStocksMap;}
-    QVector< double > * futuresDeliveryDates() {return &m_futuresDeliveryDates;}
-
+    Stock * stock(const QString &code);
 
 signals:
-    void historicalDataRead(const QString &stockCode);
+    void historicalDataRead(Stock * stock);
+//    void historicalDataRead(const QString &stockCode);
+    void requestDownloadData(const QString &url);
 
 public slots:
 
@@ -40,26 +38,23 @@ public slots:
 private slots:
     //TODO:MUTEX
     void readStocksList();
+    void updateStocksAskInfo(const QString & jsonString);
+    void updateStocksSummaryInfo(const QString & jsonString);
 
 protected:
     void run();
 
 private:
-    //Code,Name
-    static QMap<QString, QString> m_allStocksMap;
+    QMutex mutex;
 
-    QString m_stockCode;
-    QString m_stockName;
 
-    QMap<double, QCPFinancialData> *m_ohlcData; //index,QCPFinancialData. 基本交易数据
-    QMap<double, TradeExtraData> *m_tradeExtraData; //index,TradeExtraData. 交易数据
-    QVector<double> m_futuresDeliveryDates; //index. Futures delivery,期指交割日，忽略放假顺延
-
-    DownloadManager *m_downloadManager;
+    //QMap<double, QCPFinancialData> *m_ohlcData; //index,QCPFinancialData. 基本交易数据
+    //QMap<double, TradeExtraData> *m_tradeExtraData; //index,TradeExtraData. 交易数据
+    //QVector<double> m_futuresDeliveryDates; //index. Futures delivery,期指交割日，忽略放假顺延
 
     QString m_localSaveDir;
 
-
+    QMap<QString, Stock*> *m_allStocks; //Code,Stock
 
 };
 

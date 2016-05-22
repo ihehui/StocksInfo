@@ -9,9 +9,7 @@ SOURCES += main.cpp\
     qcustomplot.cpp \
     candlesticksview.cpp \
     tradesummaryinfoview.cpp \
-    tradeinfo.cpp \
     common.cpp \
-    indicatorview.cpp \
     datamanager.cpp \
     mainwindow.cpp \
     downloadmanager.cpp \
@@ -20,9 +18,7 @@ SOURCES += main.cpp\
 HEADERS  += qcustomplot.h \
     candlesticksview.h \
     tradesummaryinfoview.h \
-    tradeinfo.h \
     common.h \
-    indicatorview.h \
     datamanager.h \
     mainwindow.h \
     downloadmanager.h \

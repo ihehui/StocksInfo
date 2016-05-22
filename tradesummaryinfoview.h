@@ -2,7 +2,7 @@
 #define TRADESUMMARYINFOVIEW_H
 
 #include <QWidget>
-#include "tradeinfo.h"
+#include "stock.h"
 
 
 namespace Ui {
