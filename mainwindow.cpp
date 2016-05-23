@@ -26,7 +26,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     m_downloadManager = new DownloadManager();
-    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), m_dataManager, SLOT(dataDownloaded(const QString &, const QUrl &)));
+    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), m_dataManager, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
     connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
     connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
 
@@ -40,6 +40,20 @@ MainWindow::MainWindow(QWidget *parent) :
     m_timer.setInterval(5000);
     m_timer.setSingleShot(false);
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
+
+
+    m_tableModel = new StocksTableModel(this);
+    m_sortFilterProxyModel = new SortFilterProxyModel(this);
+    m_sortFilterProxyModel->setSourceModel(m_tableModel);
+    m_sortFilterProxyModel->setDynamicSortFilter(true);
+    ui->tableViewStocks->setModel(m_sortFilterProxyModel);
+    connect(m_dataManager, SIGNAL(stocksLoaded(QMap<QString,Stock*>*)), m_tableModel, SLOT(setStocks(QMap<QString,Stock*>*)), Qt::QueuedConnection);
+    //m_tableModel->setStocks(m_dataManager->allStocks());
+qDebug()<<"rowHeight:"<< ui->tableViewStocks->rowHeight(0);
+qDebug()<<"viewport:"<< ui->tableViewStocks->viewport()->rect();
+
+
+
 
     ui->tabCandlestick->showCandlesticks("000001");
 

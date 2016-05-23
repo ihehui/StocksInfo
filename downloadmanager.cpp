@@ -69,6 +69,7 @@ DownloadManager::DownloadManager(QObject *parent)
 {
     localSaveDir = QApplication::applicationDirPath() + "/data";
     curFileName = "";
+    currentRealTimeQuoteDataReply = 0;
 }
 
 void DownloadManager::append(const QStringList &urlList)
@@ -103,8 +104,8 @@ void DownloadManager::requestRealTimeQuoteData(const QString &url){
 
 void DownloadManager::requestRealTimeStatisticsData(const QString &url){
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    currentRealTimeStatisticsDataReply = manager.get(request);
-    connect(currentRealTimeStatisticsDataReply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+    QNetworkReply *reply = manager.get(request);
+    connect(reply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
 }
 
 
@@ -252,9 +253,11 @@ void DownloadManager::realTimeQuoteDataDownloadFinished(){
 }
 
 void DownloadManager::realTimeStatisticsDataDownloadFinished(){
-    if(currentRealTimeStatisticsDataReply->error() == QNetworkReply::NoError){
-        emit realTimeStatisticsDataReceived(currentRealTimeStatisticsDataReply->readAll());
-    }
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if(!reply){return;}
 
-    currentRealTimeStatisticsDataReply->deleteLater();
+    if(reply->error() == QNetworkReply::NoError){
+        emit realTimeStatisticsDataReceived(reply->readAll());
+    }
+    reply->deleteLater();
 }

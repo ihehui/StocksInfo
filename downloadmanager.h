@@ -111,7 +111,6 @@ private:
     QString curFileName;
 
     QNetworkReply *currentRealTimeQuoteDataReply;
-    QNetworkReply *currentRealTimeStatisticsDataReply;
 
 };
 

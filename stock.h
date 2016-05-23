@@ -43,13 +43,12 @@ class RealTimeStatisticsData
 public:
   RealTimeStatisticsData();
 
-  QString code;
   QString time;
-
-  double open, high, low, price, change, changePercent;
+  double open, high, low, price, change, changePercent, yestClose;
   double volume, turnover, exchangeRatio;
   double tradableMarketCap, marketCap, pe, earnings;
   double volChangeRatio, orderChangeRatio;
+  double fiveMinsChange;
 };
 
 class Stock : public QObject

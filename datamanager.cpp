@@ -9,6 +9,8 @@
 
 DataManager::DataManager(QObject *parent) : QObject(parent)
 {
+    qRegisterMetaType<RealTimeQuoteData>("RealTimeQuoteData");
+
     m_allStocks = new QMap<QString, Stock*>();
     readStocksList();
 
@@ -38,6 +40,10 @@ Stock * DataManager::stock(const QString &code) const{
         qDebug()<<QString("Stock '%1' Not Found!").arg(code);
     }
     return stock;
+}
+
+QMap<QString, Stock*> * DataManager::allStocks() const{
+    return m_allStocks;
 }
 
 bool DataManager::readHistoricalData(QString *code, int offset){
@@ -231,6 +237,7 @@ void DataManager::realTimeQuoteDataReceived(const QByteArray &data){
     statisticsData->price = object["price"].toDouble();
     statisticsData->change = object["updown"].toDouble();
     statisticsData->changePercent = object["percent"].toDouble();
+    statisticsData->yestClose = object["yestclose"].toDouble();
     statisticsData->volume = object["volume"].toDouble();
     statisticsData->turnover = object["turnover"].toDouble();
 
@@ -278,6 +285,7 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         statisticsData->price = object["PRICE"].toDouble();
         statisticsData->change = object["UPDOWN"].toDouble();
         statisticsData->changePercent = object["PERCENT"].toDouble();
+        statisticsData->yestClose = object["YESTCLOSE"].toDouble();
         statisticsData->volume = object["VOLUME"].toDouble();
         statisticsData->turnover = object["TURNOVER"].toDouble();
         statisticsData->exchangeRatio = object["HS"].toDouble();
@@ -287,6 +295,7 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         statisticsData->earnings = object["MFSUM"].toDouble();
         statisticsData->volChangeRatio = object["LB"].toDouble();
         statisticsData->orderChangeRatio = object["WB"].toDouble();
+        statisticsData->fiveMinsChange = object["FIVE_MINUTE"].toDouble();
 
     }
 
@@ -322,15 +331,12 @@ void DataManager::readStocksList(){
         m_allStocks->insert("000001", new Stock("000001", "\345\271\263\345\256\211\351\223\266\350\241\214"));
         m_allStocks->insert("000002", new Stock("000002", "\344\270\207  \347\247\221\357\274\241"));
     }
-}
 
-
-
-void DataManager::updateStocksSummaryInfo(const QString & jsonString){
+    emit stocksLoaded(m_allStocks);
 
 }
 
 
-void DataManager::run(){
-//    exec();
-}
+
+
+

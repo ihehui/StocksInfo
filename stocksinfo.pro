@@ -13,7 +13,8 @@ SOURCES += main.cpp\
     datamanager.cpp \
     mainwindow.cpp \
     downloadmanager.cpp \
-    stock.cpp
+    stock.cpp \
+    stockstablemodel.cpp
 
 HEADERS  += qcustomplot.h \
     candlesticksview.h \
@@ -22,7 +23,8 @@ HEADERS  += qcustomplot.h \
     datamanager.h \
     mainwindow.h \
     downloadmanager.h \
-    stock.h
+    stock.h \
+    stockstablemodel.h
 
 FORMS += \
     tradesummaryinfoview.ui \

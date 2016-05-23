@@ -32,10 +32,11 @@ RealTimeQuoteData::RealTimeQuoteData(){
 
 RealTimeStatisticsData::RealTimeStatisticsData(){
     time = "";
-    open=high=low=price=change=changePercent=0;
+    open=high=low=price=change=changePercent=yestClose=0;
     volume=turnover=exchangeRatio=0;
     tradableMarketCap=marketCap=pe=earnings=0;
     volChangeRatio=orderChangeRatio=0;
+    fiveMinsChange=0;
 }
 
 

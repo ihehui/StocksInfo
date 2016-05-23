@@ -6,7 +6,7 @@
 
 #include "datamanager.h"
 #include "downloadmanager.h"
-
+#include "stockstablemodel.h"
 
 
 namespace Ui {
@@ -33,6 +33,9 @@ private:
     QThread m_dataManagerThread, m_downloadManagerThread;
     DownloadManager *m_downloadManager;
     DataManager *m_dataManager;
+
+    StocksTableModel *m_tableModel;
+    SortFilterProxyModel *m_sortFilterProxyModel;
 
     QTimer m_timer;
 

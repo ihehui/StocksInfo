@@ -20,8 +20,10 @@ public:
     ~DataManager();
 
     Stock * stock(const QString &code) const;
+    QMap<QString, Stock*> * allStocks() const;
 
 signals:
+    void stocksLoaded(QMap<QString,Stock*> *stocks);
     void historicalDataRead(Stock * stock);
 //    void realTimeAskDataUpdated(Stock * stock);
     void realTimeAskDataUpdated(const RealTimeQuoteData &data);
@@ -51,10 +53,7 @@ public slots:
 private slots:
     //TODO:MUTEX
     void readStocksList();
-    void updateStocksSummaryInfo(const QString & jsonString);
 
-protected:
-    void run();
 
 private:
     QMutex mutex;
