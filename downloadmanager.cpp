@@ -95,13 +95,17 @@ void DownloadManager::append(const QString &url){
     append(QUrl::fromEncoded(url.toLocal8Bit()));
 }
 
-void DownloadManager::requestRealTimeAskData(const QString &url){
+void DownloadManager::requestRealTimeQuoteData(const QString &url){
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    currentRealTimeAskDataReply = manager.get(request);
-    connect(currentRealTimeAskDataReply, SIGNAL(finished()), SLOT(realTimeAskDataDownloadFinished()));
-
+    currentRealTimeQuoteDataReply = manager.get(request);
+    connect(currentRealTimeQuoteDataReply, SIGNAL(finished()), SLOT(realTimeQuoteDataDownloadFinished()));
 }
 
+void DownloadManager::requestRealTimeStatisticsData(const QString &url){
+    QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
+    currentRealTimeStatisticsDataReply = manager.get(request);
+    connect(currentRealTimeStatisticsDataReply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+}
 
 
 QString DownloadManager::saveFileName(const QUrl &url)
@@ -239,10 +243,18 @@ void DownloadManager::downloadReadyRead()
     output.write(currentDownload->readAll());
 }
 
-void DownloadManager::realTimeAskDataDownloadFinished(){
-    if(currentRealTimeAskDataReply->error() == QNetworkReply::NoError){
-        emit realTimeAskDataReceived(currentRealTimeAskDataReply->readAll());
+void DownloadManager::realTimeQuoteDataDownloadFinished(){
+    if(currentRealTimeQuoteDataReply->error() == QNetworkReply::NoError){
+        emit realTimeQuoteDataReceived(currentRealTimeQuoteDataReply->readAll());
     }
 
-    currentRealTimeAskDataReply->deleteLater();
+    currentRealTimeQuoteDataReply->deleteLater();
+}
+
+void DownloadManager::realTimeStatisticsDataDownloadFinished(){
+    if(currentRealTimeStatisticsDataReply->error() == QNetworkReply::NoError){
+        emit realTimeStatisticsDataReceived(currentRealTimeStatisticsDataReply->readAll());
+    }
+
+    currentRealTimeStatisticsDataReply->deleteLater();
 }

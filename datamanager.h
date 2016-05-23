@@ -19,16 +19,17 @@ public:
     explicit DataManager(QObject *parent = 0);
     ~DataManager();
 
-    Stock * stock(const QString &code);
+    Stock * stock(const QString &code) const;
 
 signals:
     void historicalDataRead(Stock * stock);
 //    void realTimeAskDataUpdated(Stock * stock);
-    void realTimeAskDataUpdated(const RealTimeData &data);
+    void realTimeAskDataUpdated(const RealTimeQuoteData &data);
 
 //    void historicalDataRead(const QString &stockCode);
     void requestDownloadData(const QString &url);
-    void requestRealTimeAskData(const QString &url);
+    void requestRealTimeQuoteData(const QString &url);
+    void requestRealTimeStatisticsData(const QString &url);
 
 
 public slots:
@@ -41,8 +42,11 @@ public slots:
     void historicalDataDownloaded(const QString &fileName, const QUrl &url);
 
     //实时行情数据
-    void downloadRealTimeAskData(const QString &code);
-    void realTimeAskDataReceived(const QByteArray &data);
+    void downloadRealTimeQuoteData(const QString &code);
+    void realTimeQuoteDataReceived(const QByteArray &data);
+
+    void downloadRealTimeStatisticsData(const QString &code);
+    void realTimeStatisticsDataReceived(const QByteArray &data);
 
 private slots:
     //TODO:MUTEX

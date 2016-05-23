@@ -552,7 +552,7 @@ void CandlesticksView::updateVolumeYAxisRange(){
     for (it = leftkeyIT; it != rightkeyIT; ++it)
     {
         TradeExtraData extraData = it.value();
-        double currentVol = extraData.volume_Hand;
+        double currentVol = extraData.volume;
         if (currentVol > maxYValue){
             maxYValue = currentVol;
         }
@@ -578,7 +578,7 @@ void CandlesticksView::historicalDataRead(Stock *stock){
     for(QMap<double, TradeExtraData>::const_iterator it = m_tradeExtraDataMap->constBegin(); it!=m_tradeExtraDataMap->constEnd(); it++){
         QCPFinancialData ohlcData = m_ohlcDataMap->value(it.key());
         TradeExtraData extraData = it.value();
-        (ohlcData.close < ohlcData.open ? m_volumeNeg : m_volumePos)->addData(it.key(), (extraData.volume_Hand));
+        (ohlcData.close < ohlcData.open ? m_volumeNeg : m_volumePos)->addData(it.key(), (extraData.volume));
     }
 
     rescaleAxes();

@@ -32,7 +32,7 @@ DataManager::~DataManager(){
 
 }
 
-Stock * DataManager::stock(const QString &code){
+Stock * DataManager::stock(const QString &code) const{
     Stock *stock = m_allStocks->value(code);
     if(!stock){
         qDebug()<<QString("Stock '%1' Not Found!").arg(code);
@@ -177,13 +177,13 @@ void DataManager::historicalDataDownloaded(const QString &fileName, const QUrl &
     readHistoricalData(&code, 0);
 }
 
-void DataManager::downloadRealTimeAskData(const QString &code){
+void DataManager::downloadRealTimeQuoteData(const QString &code){
     //API:http://api.money.126.net/data/feed/1000001,money.api
     QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api").arg(code.startsWith("6")?"0":"1").arg(code);
-    emit requestRealTimeAskData(url);
+    emit requestRealTimeQuoteData(url);
 }
 
-void DataManager::realTimeAskDataReceived(const QByteArray &data){
+void DataManager::realTimeQuoteDataReceived(const QByteArray &data){
     //API:http://api.money.126.net/data/feed/1000001,money.api
     if(data.isEmpty()){return;}
 
@@ -200,7 +200,7 @@ void DataManager::realTimeAskDataReceived(const QByteArray &data){
     Stock *stock = m_allStocks->value(code);
     if(!stock){return;}
 
-    RealTimeData rtData;
+    RealTimeQuoteData rtData;
     rtData.code = code;
     rtData.time = object["time"].toString();
     rtData.ask1 = object["ask1"].toDouble();
@@ -223,16 +223,72 @@ void DataManager::realTimeAskDataReceived(const QByteArray &data){
     rtData.bidVol3 = object["bidvol3"].toDouble();
     rtData.bidVol4 = object["bidvol4"].toDouble();
     rtData.bidVol5 = object["bidvol5"].toDouble();
-    rtData.open = object["open"].toDouble();
-    rtData.high = object["high"].toDouble();
-    rtData.low = object["low"].toDouble();
-    rtData.price = object["price"].toDouble();
-    rtData.change = object["updown"].toDouble();
-    rtData.changePercent = object["percent"].toDouble();
-    rtData.volume_Hand = object["volume"].toDouble();
-    rtData.turnover = object["turnover"].toDouble();
+
+    RealTimeStatisticsData * statisticsData = stock->realTimeStatisticsData();
+    statisticsData->open = object["open"].toDouble();
+    statisticsData->high = object["high"].toDouble();
+    statisticsData->low = object["low"].toDouble();
+    statisticsData->price = object["price"].toDouble();
+    statisticsData->change = object["updown"].toDouble();
+    statisticsData->changePercent = object["percent"].toDouble();
+    statisticsData->volume = object["volume"].toDouble();
+    statisticsData->turnover = object["turnover"].toDouble();
 
     emit realTimeAskDataUpdated(rtData);
+
+}
+
+void DataManager::downloadRealTimeStatisticsData(const QString &code){
+   //API:http://quotes.money.163.com/hs/service/diyrank.php?page=0&query=STYPE%3AEQA&fields=NO%2CSYMBOL%2CNAME%2CPRICE%2CPERCENT%2CUPDOWN%2CFIVE_MINUTE%2COPEN%2CYESTCLOSE%2CHIGH%2CLOW%2CVOLUME%2CTURNOVER%2CHS%2CLB%2CWB%2CZF%2CPE%2CMCAP%2CTCAP%2CMFSUM%2CMFRATIO.MFRATIO2%2CMFRATIO.MFRATIO10%2CSNAME%2CCODE%2CANNOUNMT%2CUVSNEWS&sort=SYMBOL&order=desc&count=24&type=query
+    QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api").arg(code.startsWith("6")?"0":"1").arg(code);
+    emit requestRealTimeStatisticsData(url);
+}
+
+void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
+    if(data.isEmpty()){return;}
+
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if(error.error != QJsonParseError::NoError){
+        qCritical()<<error.errorString();
+        return;
+    }
+    QJsonObject object = doc.object();
+    if(object.isEmpty()){return;}
+
+    QString time = object["time"].toString();
+    QJsonArray array = object["list"].toArray();
+    for(int i=0;i<array.size();i++){
+        QJsonObject infoObj = array.at(i).toObject();
+        if(infoObj.isEmpty()){continue;}
+
+        QString code = infoObj["SYMBOL"].toString();
+        QString name = infoObj["SNAME"].toString();
+        Stock *stock = m_allStocks->value(code);
+        if(!stock){
+            stock = new Stock(code, name, this);
+            m_allStocks->insert(code, stock);
+        }
+
+        RealTimeStatisticsData *statisticsData = stock->realTimeStatisticsData();
+        statisticsData->time = time;
+        statisticsData->open = object["OPEN"].toDouble();
+        statisticsData->high = object["HIGH"].toDouble();
+        statisticsData->low = object["LOW"].toDouble();
+        statisticsData->price = object["PRICE"].toDouble();
+        statisticsData->change = object["UPDOWN"].toDouble();
+        statisticsData->changePercent = object["PERCENT"].toDouble();
+        statisticsData->volume = object["VOLUME"].toDouble();
+        statisticsData->turnover = object["TURNOVER"].toDouble();
+        statisticsData->exchangeRatio = object["HS"].toDouble();
+        statisticsData->tradableMarketCap = object["MCAP"].toDouble();
+        statisticsData->marketCap = object["TCAP"].toDouble();
+        statisticsData->pe = object["PE"].toDouble();
+        statisticsData->earnings = object["MFSUM"].toDouble();
+        statisticsData->volChangeRatio = object["LB"].toDouble();
+        statisticsData->orderChangeRatio = object["WB"].toDouble();
+
+    }
 
 }
 

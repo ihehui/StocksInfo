@@ -1,4 +1,4 @@
-#ifndef CANDLESTICKSVIEW_H
+﻿#ifndef CANDLESTICKSVIEW_H
 #define CANDLESTICKSVIEW_H
 
 #include <QWidget>

@@ -65,12 +65,16 @@ class DownloadManager: public QObject
 public:
     DownloadManager(QObject *parent = 0);
 
+
+
 public slots:
     void append(const QUrl &url);
     void append(const QString &url);
     void append(const QStringList &urlList);
 
-    void requestRealTimeAskData(const QString &url);
+    void requestRealTimeQuoteData(const QString &url);
+    void requestRealTimeStatisticsData(const QString &url);
+
 
     QString saveFileName(const QUrl &url);
     void setLocalSaveDir(const QString &path);
@@ -78,7 +82,8 @@ public slots:
 signals:
     void finished();
     void dataDownloaded(const QString &fileName, const QUrl &url);
-    void realTimeAskDataReceived(const QByteArray &data);
+    void realTimeQuoteDataReceived(const QByteArray &data);
+    void realTimeStatisticsDataReceived(const QByteArray &data);
 
 private slots:
     void startNextDownload();
@@ -86,7 +91,8 @@ private slots:
     void downloadFinished();
     void downloadReadyRead();
 
-    void realTimeAskDataDownloadFinished();
+    void realTimeQuoteDataDownloadFinished();
+    void realTimeStatisticsDataDownloadFinished();
 
 private:
     QMutex mutex;
@@ -104,8 +110,8 @@ private:
     QString localSaveDir;
     QString curFileName;
 
-    QNetworkReply *currentRealTimeAskDataReply;
-
+    QNetworkReply *currentRealTimeQuoteDataReply;
+    QNetworkReply *currentRealTimeStatisticsDataReply;
 
 };
 

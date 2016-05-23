@@ -22,7 +22,7 @@ public:
     ~MainWindow();
 
  public slots:
-    void updateRealTimeAskData(const RealTimeData &data);
+    void updateRealTimeAskData(const RealTimeQuoteData &data);
 
 private slots:
     void timeout();

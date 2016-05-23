@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_dataManager = new DataManager();
 //    connect(m_dataManager, SIGNAL(historicalDataRead(QString)), ui->tabCandlestick, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(historicalDataRead(Stock*)), ui->tabCandlestick, SLOT(historicalDataRead(Stock*)), Qt::QueuedConnection);
-    connect(m_dataManager, SIGNAL(realTimeAskDataUpdated(const RealTimeData &)), this, SLOT(updateRealTimeAskData(const RealTimeData &)), Qt::QueuedConnection);
+    connect(m_dataManager, SIGNAL(realTimeAskDataUpdated(const RealTimeQuoteData &)), this, SLOT(updateRealTimeAskData(const RealTimeQuoteData &)), Qt::QueuedConnection);
 
     connect(ui->tabCandlestick, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 
@@ -27,10 +27,12 @@ MainWindow::MainWindow(QWidget *parent) :
 
     m_downloadManager = new DownloadManager();
     connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), m_dataManager, SLOT(dataDownloaded(const QString &, const QUrl &)));
-    connect(m_downloadManager, SIGNAL(realTimeAskDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeAskDataReceived(const QByteArray &)));
+    connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
+    connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
 
     connect(m_dataManager, SIGNAL(requestDownloadData(const QString &)), m_downloadManager, SLOT(append(const QString &)));
-    connect(m_dataManager, SIGNAL(requestRealTimeAskData(const QString &)), m_downloadManager, SLOT(requestRealTimeAskData(const QString &)));
+    connect(m_dataManager, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));
+    connect(m_dataManager, SIGNAL(requestRealTimeStatisticsData(const QString &)), m_downloadManager, SLOT(requestRealTimeStatisticsData(const QString &)));
 
     m_downloadManager->moveToThread(&m_downloadManagerThread);
     m_downloadManagerThread.start();
@@ -40,7 +42,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
 
     ui->tabCandlestick->showCandlesticks("000001");
-
 
 }
 
@@ -60,7 +61,7 @@ MainWindow::~MainWindow()
 
 }
 
-void MainWindow::updateRealTimeAskData(const RealTimeData &data){
+void MainWindow::updateRealTimeAskData(const RealTimeQuoteData &data){
 
     Stock *stock = m_dataManager->stock(data.code);
     Q_ASSERT(stock);
@@ -90,15 +91,16 @@ void MainWindow::updateRealTimeAskData(const RealTimeData &data){
     ui->labelBIDVol4->setText(QString::number(data.bidVol4));
     ui->labelBIDVol5->setText(QString::number(data.bidVol5));
 
-    ui->labelCurPrice->setText(QString::number(data.price));
-    ui->labelOpen->setText(QString::number(data.open));
-    ui->labelHigh->setText(QString::number(data.high));
-    ui->labelLow->setText(QString::number(data.low));
-    ui->labelChange->setText(QString::number(data.change));
-    ui->labelChangePercent->setText(QString::number(data.changePercent));
+    RealTimeStatisticsData * statisticsData = stock->realTimeStatisticsData();
+    ui->labelCurPrice->setText(QString::number(statisticsData->price));
+    ui->labelOpen->setText(QString::number(statisticsData->open));
+    ui->labelHigh->setText(QString::number(statisticsData->high));
+    ui->labelLow->setText(QString::number(statisticsData->low));
+    ui->labelChange->setText(QString::number(statisticsData->change));
+    ui->labelChangePercent->setText(QString::number(statisticsData->changePercent));
 
 }
 
 void MainWindow::timeout(){
-    m_dataManager->downloadRealTimeAskData(ui->tabCandlestick->currentStock()->code());
+    m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
 }
