@@ -64,7 +64,7 @@ class DownloadManager: public QObject
     Q_OBJECT
 public:
     DownloadManager(QObject *parent = 0);
-
+    ~DownloadManager();
 
 
 public slots:

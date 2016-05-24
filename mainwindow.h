@@ -21,11 +21,20 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+
+protected:
+    void closeEvent(QCloseEvent *event);
+
+
  public slots:
     void updateRealTimeAskData(const RealTimeQuoteData &data);
 
 private slots:
     void timeout();
+
+    void test();
+
+
 
 private:
     Ui::MainWindow *ui;

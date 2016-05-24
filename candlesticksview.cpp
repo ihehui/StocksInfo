@@ -568,7 +568,7 @@ void CandlesticksView::historicalDataRead(Stock *stock){
     m_stockName = stock->name();
 
     m_ohlcDataMap = stock->ohlcDataMap();
-    m_candlesticks->setData(m_ohlcDataMap, false);
+    m_candlesticks->setData(m_ohlcDataMap, true); //TODO:optimize
 
     QVector< double > * futuresDeliveryDates = stock->futuresDeliveryDates();
     xAxis->setTickVector(*futuresDeliveryDates);

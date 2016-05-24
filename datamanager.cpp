@@ -31,6 +31,7 @@ DataManager::~DataManager(){
 
     qDeleteAll(m_allStocks->begin(), m_allStocks->end());
     delete m_allStocks;
+    m_allStocks = 0;
 
 }
 

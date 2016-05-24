@@ -4,6 +4,8 @@ StocksTableModel::StocksTableModel(QObject *parent)
     :QAbstractTableModel(parent)
 {
     m_allStocks = 0;
+    m_rowCount = 0;
+    m_startIndex = 0;
 }
 
 StocksTableModel::~StocksTableModel(){
@@ -14,7 +16,8 @@ int StocksTableModel::rowCount ( const QModelIndex & parent) const {
     if(parent.isValid() || !m_allStocks){
         return 0;
     }
-    return m_allStocks->size();
+    //return m_allStocks->size();
+    return m_rowCount;
 }
 
 int	StocksTableModel::columnCount ( const QModelIndex & parent) const{
@@ -201,6 +204,14 @@ void StocksTableModel::setStocks(QMap<QString, Stock*> *stocks){
     m_allStocks = stocks;
 
     endResetModel();
+}
+
+void StocksTableModel::setRowCount(int count){
+    m_rowCount = count;
+}
+
+void StocksTableModel::setStartIndex(int index){
+    m_startIndex = index;
 }
 
 

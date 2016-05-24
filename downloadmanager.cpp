@@ -72,6 +72,11 @@ DownloadManager::DownloadManager(QObject *parent)
     currentRealTimeQuoteDataReply = 0;
 }
 
+DownloadManager::~DownloadManager(){
+    qDebug()<<"DownloadManager::~DownloadManager()";
+}
+
+
 void DownloadManager::append(const QStringList &urlList)
 {
     foreach (QString url, urlList)

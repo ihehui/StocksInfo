@@ -55,9 +55,16 @@ Stock::Stock(const QString &code, const QString &name, QObject *parent)
 
 Stock::~Stock(){
     delete m_realTimeStatisticsData;
+    m_realTimeStatisticsData = 0;
+
     delete m_ohlcData; //May be deleted by QCPFinancial
+    m_ohlcData = 0;
+
     delete m_tradeExtraData;
+    m_tradeExtraData = 0;
+
     delete m_futuresDeliveryDates;
+    m_futuresDeliveryDates = 0;
 }
 
 QString Stock::code() const{

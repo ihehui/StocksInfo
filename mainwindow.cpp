@@ -8,8 +8,15 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     ui->stackedWidgetExtraInfo->hide();
 
+//    QFont ft = QApplication::font();
+//    ft.setBold(true);
+//    ft.setPointSize(ft.pointSize()*1.5);
+//    QFontMetrics fm(ft);
 
-
+    int rowHeight = 20;
+    QHeaderView *verticalHeader = ui->tableViewStocks->verticalHeader();
+    verticalHeader->setDefaultSectionSize(rowHeight);
+    //verticalHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
 
 
     m_dataManager = new DataManager();
@@ -48,13 +55,16 @@ MainWindow::MainWindow(QWidget *parent) :
     m_sortFilterProxyModel->setDynamicSortFilter(true);
     ui->tableViewStocks->setModel(m_sortFilterProxyModel);
     connect(m_dataManager, SIGNAL(stocksLoaded(QMap<QString,Stock*>*)), m_tableModel, SLOT(setStocks(QMap<QString,Stock*>*)), Qt::QueuedConnection);
-    //m_tableModel->setStocks(m_dataManager->allStocks());
-qDebug()<<"rowHeight:"<< ui->tableViewStocks->rowHeight(0);
-qDebug()<<"viewport:"<< ui->tableViewStocks->viewport()->rect();
 
+    m_tableModel->setStocks(m_dataManager->allStocks());
 
+//qDebug()<<ui->tableViewStocks->height();
+//qDebug()<<ui->tableViewStocks->viewport()->height();
+//qDebug()<<ui->tableViewStocks->geometry().height();
+//qDebug()<<ui->tableViewStocks->frameGeometry().height();
+//m_tableModel->setRowCount(ui->tableViewStocks->height()/rowHeight);
 
-
+QTimer::singleShot(0, this, SLOT(test()));
     ui->tabCandlestick->showCandlesticks("000001");
 
 }
@@ -66,13 +76,33 @@ MainWindow::~MainWindow()
     m_timer.stop();
 
     //m_dataManager->quit();
-    //delete m_dataManager;
+    delete m_dataManager;
+    delete m_downloadManager;
 
+    delete m_sortFilterProxyModel;
+    delete m_tableModel;
+
+//    m_dataManagerThread.quit();
+//    m_dataManagerThread.wait();
+//    qDebug()<<"----------2-----------";
+
+//    m_downloadManagerThread.quit();
+//    m_dataManagerThread.wait();
+//    qDebug()<<"----------3-----------";
+
+
+}
+
+void MainWindow::closeEvent(QCloseEvent *event){
     m_dataManagerThread.quit();
+    m_dataManagerThread.wait();
+    qDebug()<<"----------0-----------";
 
     m_downloadManagerThread.quit();
+    m_dataManagerThread.wait();
+    qDebug()<<"----------1-----------";
 
-
+    event->accept();
 }
 
 void MainWindow::updateRealTimeAskData(const RealTimeQuoteData &data){
@@ -118,3 +148,11 @@ void MainWindow::updateRealTimeAskData(const RealTimeQuoteData &data){
 void MainWindow::timeout(){
     m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
 }
+
+void MainWindow::test(){
+    m_tableModel->setRowCount(ui->tableViewStocks->viewport()->height()/20);
+    m_tableModel->setStocks(m_dataManager->allStocks());
+
+}
+
+
