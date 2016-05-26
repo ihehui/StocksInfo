@@ -3,15 +3,30 @@
 #include "qcustomplot.h"
 #include "stock.h"
 
-//#include "downloadmanager.h"
+#include "downloadmanager.h"
 
 
 
 DataManager::DataManager(QObject *parent) : QObject(parent)
 {
     qRegisterMetaType<RealTimeQuoteData>("RealTimeQuoteData");
+    qRegisterMetaType<QList<Stock*>>("QList<Stock*>");
+
+
+    m_downloadManager = new DownloadManager();
+    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
+    connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), this, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
+    connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), this, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
+
+    connect(this, SIGNAL(requestDownloadData(const QString &)), m_downloadManager, SLOT(requestFileDownload(const QString &)));
+    connect(this, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));
+    connect(this, SIGNAL(requestRealTimeStatisticsData(const QString &)), m_downloadManager, SLOT(requestRealTimeStatisticsData(const QString &)));
+
+
+
 
     m_allStocks = new QMap<QString, Stock*>();
+    m_hsaTotalStocksCount = 0;
     readStocksList();
 
 //    m_downloadManager = new DownloadManager(this);
@@ -27,7 +42,7 @@ DataManager::~DataManager(){
 
 //    delete m_ohlcData; //deleted by QCPFinancial
 //    delete m_tradeExtraData;
-//    delete m_downloadManager;
+    delete m_downloadManager;
 
     qDeleteAll(m_allStocks->begin(), m_allStocks->end());
     delete m_allStocks;
@@ -56,6 +71,7 @@ bool DataManager::readHistoricalData(QString *code, int offset){
     QString newCode = *code;
 
     int size = m_allStocks->size();
+    if(!size){return false;}
     int newOffset = offset%size;
     if(!m_allStocks->contains(newCode)){return false;}
     if(newOffset){
@@ -246,9 +262,14 @@ void DataManager::realTimeQuoteDataReceived(const QByteArray &data){
 
 }
 
-void DataManager::downloadRealTimeStatisticsData(const QString &code){
-   //API:http://quotes.money.163.com/hs/service/diyrank.php?page=0&query=STYPE%3AEQA&fields=NO%2CSYMBOL%2CNAME%2CPRICE%2CPERCENT%2CUPDOWN%2CFIVE_MINUTE%2COPEN%2CYESTCLOSE%2CHIGH%2CLOW%2CVOLUME%2CTURNOVER%2CHS%2CLB%2CWB%2CZF%2CPE%2CMCAP%2CTCAP%2CMFSUM%2CMFRATIO.MFRATIO2%2CMFRATIO.MFRATIO10%2CSNAME%2CCODE%2CANNOUNMT%2CUVSNEWS&sort=SYMBOL&order=desc&count=24&type=query
-    QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api").arg(code.startsWith("6")?"0":"1").arg(code);
+void DataManager::downloadRealTimeStatisticsData(int pageIndex, int count, bool allFields){
+   QString fields = "SYMBOL,NAME,PRICE,PERCENT,UPDOWN,FIVE_MINUTE,OPEN,YESTCLOSE,HIGH,LOW,VOLUME,TURNOVER,HS,LB,WB,ZF,PE,MCAP,TCAP,MFSUM";
+    if(!allFields){
+        fields = "SYMBOL,PRICE,PERCENT,UPDOWN,FIVE_MINUTE,HIGH,LOW,VOLUME,TURNOVER,HS,LB,WB,ZF,MFSUM";
+    }
+
+    //API:http://quotes.money.163.com/hs/service/diyrank.php?page=0&query=STYPE%3AEQA&fields=NO%2CSYMBOL%2CNAME%2CPRICE%2CPERCENT%2CUPDOWN%2CFIVE_MINUTE%2COPEN%2CYESTCLOSE%2CHIGH%2CLOW%2CVOLUME%2CTURNOVER%2CHS%2CLB%2CWB%2CZF%2CPE%2CMCAP%2CTCAP%2CMFSUM%2CMFRATIO.MFRATIO2%2CMFRATIO.MFRATIO10%2CSNAME%2CCODE%2CANNOUNMT%2CUVSNEWS&sort=SYMBOL&order=desc&count=24&type=query
+    QString url = QString("http://quotes.money.163.com/hs/service/diyrank.php?page=%1&count=%2&sort=SYMBOL&order=desc&type=query&query=STYPE:EQA&fields=%3").arg(pageIndex).arg(count).arg(fields);
     emit requestRealTimeStatisticsData(url);
 }
 
@@ -261,43 +282,55 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         qCritical()<<error.errorString();
         return;
     }
+
     QJsonObject object = doc.object();
     if(object.isEmpty()){return;}
+
+    if(m_hsaTotalStocksCount < 1){
+        m_hsaTotalStocksCount = object["total"].toInt();
+    }
+    bool newStockCreated = false;
 
     QString time = object["time"].toString();
     QJsonArray array = object["list"].toArray();
     for(int i=0;i<array.size();i++){
+        qApp->processEvents();
+
         QJsonObject infoObj = array.at(i).toObject();
         if(infoObj.isEmpty()){continue;}
 
         QString code = infoObj["SYMBOL"].toString();
-        QString name = infoObj["SNAME"].toString();
+        QString name = infoObj["NAME"].toString();
         Stock *stock = m_allStocks->value(code);
         if(!stock){
             stock = new Stock(code, name, this);
             m_allStocks->insert(code, stock);
+            newStockCreated = true;
         }
 
         RealTimeStatisticsData *statisticsData = stock->realTimeStatisticsData();
         statisticsData->time = time;
-        statisticsData->open = object["OPEN"].toDouble();
-        statisticsData->high = object["HIGH"].toDouble();
-        statisticsData->low = object["LOW"].toDouble();
-        statisticsData->price = object["PRICE"].toDouble();
-        statisticsData->change = object["UPDOWN"].toDouble();
-        statisticsData->changePercent = object["PERCENT"].toDouble();
-        statisticsData->yestClose = object["YESTCLOSE"].toDouble();
-        statisticsData->volume = object["VOLUME"].toDouble();
-        statisticsData->turnover = object["TURNOVER"].toDouble();
-        statisticsData->exchangeRatio = object["HS"].toDouble();
-        statisticsData->tradableMarketCap = object["MCAP"].toDouble();
-        statisticsData->marketCap = object["TCAP"].toDouble();
-        statisticsData->pe = object["PE"].toDouble();
-        statisticsData->earnings = object["MFSUM"].toDouble();
-        statisticsData->volChangeRatio = object["LB"].toDouble();
-        statisticsData->orderChangeRatio = object["WB"].toDouble();
-        statisticsData->fiveMinsChange = object["FIVE_MINUTE"].toDouble();
+        statisticsData->open = infoObj["OPEN"].toDouble();
+        statisticsData->high = infoObj["HIGH"].toDouble();
+        statisticsData->low = infoObj["LOW"].toDouble();
+        statisticsData->price = infoObj["PRICE"].toDouble();
+        statisticsData->change = infoObj["UPDOWN"].toDouble();
+        statisticsData->changePercent = infoObj["PERCENT"].toDouble();
+        statisticsData->yestClose = infoObj["YESTCLOSE"].toDouble();
+        statisticsData->volume = infoObj["VOLUME"].toDouble();
+        statisticsData->turnover = infoObj["TURNOVER"].toDouble();
+        statisticsData->exchangeRatio = infoObj["HS"].toDouble();
+        statisticsData->tradableMarketCap = infoObj["MCAP"].toDouble();
+        statisticsData->marketCap = infoObj["TCAP"].toDouble();
+        statisticsData->pe = infoObj["PE"].toDouble();
+        statisticsData->earnings = infoObj["MFSUM"].toDouble();
+        statisticsData->volChangeRatio = infoObj["LB"].toDouble();
+        statisticsData->orderChangeRatio = infoObj["WB"].toDouble();
+        statisticsData->fiveMinsChange = infoObj["FIVE_MINUTE"].toDouble();
 
+    }
+    if(newStockCreated){
+        emit stocksCountChanged();
     }
 
 }
@@ -305,16 +338,13 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
 void DataManager::readStocksList(){
     QMutexLocker locker(&mutex);
 
-
     qDeleteAll(m_allStocks->begin(), m_allStocks->end());
     m_allStocks->clear();
 
     QFile file(QApplication::applicationDirPath()+"/data/AllStocks.csv");
     if(!file.open(QIODevice::ReadOnly|QIODevice::Text)){
         qDebug()<<file.errorString();
-        //For Test
-        m_allStocks->insert("000001", new Stock("000001", "\345\271\263\345\256\211\351\223\266\350\241\214"));
-        m_allStocks->insert("000002", new Stock("000002", "\344\270\207  \347\247\221\357\274\241"));
+        downloadRealTimeStatisticsData(0, 10000, true);
         return;
     }
 
@@ -328,13 +358,13 @@ void DataManager::readStocksList(){
     }
 
     if(m_allStocks->isEmpty()){
-        //For Test
-        m_allStocks->insert("000001", new Stock("000001", "\345\271\263\345\256\211\351\223\266\350\241\214"));
-        m_allStocks->insert("000002", new Stock("000002", "\344\270\207  \347\247\221\357\274\241"));
+        downloadRealTimeStatisticsData(0, 10000, true);
+    }else{
+        emit stocksCountChanged();
     }
 
-    emit stocksLoaded(m_allStocks);
 
+    //emit stocksLoaded(m_allStocks->values());
 }
 
 

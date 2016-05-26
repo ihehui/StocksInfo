@@ -1,106 +1,159 @@
 #include "stockstablemodel.h"
 
+#include <QDebug>
+
 StocksTableModel::StocksTableModel(QObject *parent)
     :QAbstractTableModel(parent)
 {
-    m_allStocks = 0;
+    //m_allStocks = 0;
     m_rowCount = 0;
     m_startIndex = 0;
 }
 
 StocksTableModel::~StocksTableModel(){
-
+    m_allStocks.clear();
 }
 
 int StocksTableModel::rowCount ( const QModelIndex & parent) const {
-    if(parent.isValid() || !m_allStocks){
+    if(parent.isValid() || m_allStocks.isEmpty()){
         return 0;
     }
-    //return m_allStocks->size();
-    return m_rowCount;
+    return m_allStocks.size();
+    //return m_rowCount;
 }
 
 int	StocksTableModel::columnCount ( const QModelIndex & parent) const{
     if(parent.isValid()){
         return 0;
     }
-    return 20;
+    return 19;
 }
 
 QVariant StocksTableModel::data ( const QModelIndex & index, int role) const {
-    if(!index.isValid() || !m_allStocks){
+    if(!index.isValid() || m_allStocks.isEmpty()){
         return QVariant();
     }
 
     int row = index.row();
-    if((row < 0) || (row >= m_allStocks->size())){
+    if((row < 0) || (row >= m_allStocks.size())){
         return QVariant();
     }
 
-    Stock *info = static_cast<Stock *> (m_allStocks->value(m_allStocks->keys().value(row)));
+    Stock *info = static_cast<Stock *> (m_allStocks.value(row));
     RealTimeStatisticsData *realTimeStatisticsData = info->realTimeStatisticsData();
+
+    char buffer[1024];
+    //sprintf(buffer, "%.2f", curValue);
 
     if(role == Qt::DisplayRole || role == Qt::EditRole){
         switch (index.column()) {
         case 0:
-            return 0;
-            break;
-        case 1:
             return info->code();
             break;
-        case 2:
+        case 1:
             return info->name();
             break;
+        case 2:
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->changePercent*100);
+            return QString(buffer);
+        }
+            break;
         case 3:
-            return realTimeStatisticsData->changePercent;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->price);
+            return QString(buffer);
+        }
             break;
         case 4:
-            return realTimeStatisticsData->price;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->change);
+            return QString(buffer);
+        }
             break;
         case 5:
-            return realTimeStatisticsData->change;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->fiveMinsChange);
+            return QString(buffer);
+        }
             break;
         case 6:
-            return realTimeStatisticsData->fiveMinsChange;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->volChangeRatio);
+            return QString(buffer);
+        }
             break;
         case 7:
-            return realTimeStatisticsData->volChangeRatio;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->exchangeRatio);
+            return QString(buffer);
+        }
             break;
         case 8:
-            return realTimeStatisticsData->exchangeRatio;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->open);
+            return QString(buffer);
+        }
             break;
         case 9:
-            return realTimeStatisticsData->open;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->yestClose);
+            return QString(buffer);
+        }
             break;
         case 10:
-            return realTimeStatisticsData->yestClose;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->high);
+            return QString(buffer);
+        }
             break;
         case 11:
-            return realTimeStatisticsData->high;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->low);
+            return QString(buffer);
+        }
             break;
         case 12:
-            return realTimeStatisticsData->low;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->orderChangeRatio);
+            return QString(buffer);
+        }
             break;
         case 13:
-            return realTimeStatisticsData->orderChangeRatio;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->volume);
+            return QString(buffer);
+        }
             break;
         case 14:
-            return realTimeStatisticsData->volume;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->turnover);
+            return QString(buffer);
+        }
             break;
         case 15:
-            return realTimeStatisticsData->turnover;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->tradableMarketCap);
+            return QString(buffer);
+        }
             break;
         case 16:
-            return realTimeStatisticsData->tradableMarketCap;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->marketCap);
+            return QString(buffer);
+        }
             break;
         case 17:
-            return realTimeStatisticsData->marketCap;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->pe);
+            return QString(buffer);
+        }
             break;
         case 18:
-            return realTimeStatisticsData->pe;
-            break;
-        case 19:
-            return realTimeStatisticsData->earnings;
+        {
+            sprintf(buffer, "%.2f", realTimeStatisticsData->earnings);
+            return QString(buffer);
+        }
             break;
 
 
@@ -126,63 +179,60 @@ QVariant StocksTableModel::headerData ( int section, Qt::Orientation orientation
     if(orientation ==  Qt::Horizontal){
         switch (section) {
         case 0:
-            return QString(tr("Index"));
-            break;
-        case 1:
             return QString(tr("Code"));
             break;
-        case 2:
+        case 1:
             return QString(tr("Name"));
             break;
-        case 3:
+        case 2:
             return QString(tr("Change Percent"));
             break;
-        case 4:
+        case 3:
             return QString(tr("Price"));
             break;
-        case 5:
+        case 4:
             return QString(tr("Change"));
             break;
-        case 6:
+        case 5:
             return QString(tr("5 Mins Chg"));
             break;
-        case 7:
+        case 6:
             return QString(tr("Vol Chg Ratio"));
             break;
-        case 8:
+        case 7:
             return QString(tr("Exchange Ratio"));
             break;
-        case 9:
+        case 8:
             return QString(tr("Open"));
             break;
-        case 10:
+        case 9:
             return QString(tr("YestClose"));
             break;
-        case 11:
+        case 10:
             return QString(tr("High"));
             break;
-        case 12:
+        case 11:
             return QString(tr("Low"));
             break;
-        case 13:
+        case 12:
             return QString(tr("Order Chg Ratio"));
             break;
-        case 14:
+        case 13:
             return QString(tr("Volume"));
             break;
-        case 15:
+        case 14:
             return QString(tr("Turnover"));
             break;
-        case 16:
+        case 15:
             return QString(tr("Tradable Market Cap"));
             break;
-        case 17:
+        case 16:
             return QString(tr("Market Cap"));
             break;
-        case 18:
+        case 17:
             return QString(tr("PE"));
             break;
-        case 19:
+        case 18:
             return QString(tr("Earnings"));
             break;
 
@@ -198,7 +248,8 @@ QVariant StocksTableModel::headerData ( int section, Qt::Orientation orientation
 }
 
 
-void StocksTableModel::setStocks(QMap<QString, Stock*> *stocks){
+void StocksTableModel::setStocks(const QList<Stock *> &stocks){
+    qDebug()<<"StocksTableModel::setStocks(...)";
     beginResetModel();
 
     m_allStocks = stocks;

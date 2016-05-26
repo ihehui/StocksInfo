@@ -57,7 +57,9 @@
 #include <QTime>
 #include <QUrl>
 #include <QNetworkAccessManager>
-
+#include <QThread>
+#include <QWaitCondition>
+#include <QNetworkReply>
 
 class DownloadManager: public QObject
 {
@@ -68,9 +70,9 @@ public:
 
 
 public slots:
-    void append(const QUrl &url);
-    void append(const QString &url);
-    void append(const QStringList &urlList);
+    void requestFileDownload(const QUrl &url);
+    void requestFileDownload(const QString &url);
+    void requestFileDownload(const QStringList &urlList);
 
     void requestRealTimeQuoteData(const QString &url);
     void requestRealTimeStatisticsData(const QString &url);
@@ -94,12 +96,16 @@ private slots:
     void realTimeQuoteDataDownloadFinished();
     void realTimeStatisticsDataDownloadFinished();
 
-private:
-    QMutex mutex;
+    void error(QNetworkReply::NetworkError code);
 
-    QNetworkAccessManager manager;
-    QQueue<QUrl> downloadQueue;
-    QNetworkReply *currentDownload;
+public slots:
+
+
+private:
+
+    QNetworkAccessManager *manager;
+    QQueue<QUrl> fileDownloadQueue, realTimeQuoteQueue, realTimeStatisticsQueue;
+    QNetworkReply *currentFileDownload;
     QFile output;
     QTime downloadTime;
 
@@ -110,7 +116,6 @@ private:
     QString localSaveDir;
     QString curFileName;
 
-    QNetworkReply *currentRealTimeQuoteDataReply;
 
 };
 

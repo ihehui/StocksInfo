@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+//#include <QtConcurrent/QtConcurrent>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -18,45 +19,52 @@ MainWindow::MainWindow(QWidget *parent) :
     verticalHeader->setDefaultSectionSize(rowHeight);
     //verticalHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
 
+    m_tableModel = new StocksTableModel(this);
+    m_sortFilterProxyModel = new SortFilterProxyModel(this);
+    m_sortFilterProxyModel->setSourceModel(m_tableModel);
+    m_sortFilterProxyModel->setDynamicSortFilter(true);
+    ui->tableViewStocks->setModel(m_sortFilterProxyModel);
+    //m_tableModel->setStocks(m_dataManager->allStocks()->values());
+
 
     m_dataManager = new DataManager();
 //    connect(m_dataManager, SIGNAL(historicalDataRead(QString)), ui->tabCandlestick, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(historicalDataRead(Stock*)), ui->tabCandlestick, SLOT(historicalDataRead(Stock*)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(realTimeAskDataUpdated(const RealTimeQuoteData &)), this, SLOT(updateRealTimeAskData(const RealTimeQuoteData &)), Qt::QueuedConnection);
-
+    connect(m_dataManager, SIGNAL(stocksCountChanged()), this, SLOT(stocksCountChanged()), Qt::QueuedConnection);
     connect(ui->tabCandlestick, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 
+    m_tableModel->setStocks(m_dataManager->allStocks()->values());
+
+
     ui->tabCandlestick->setDataManager(m_dataManager);
-    m_dataManager->moveToThread(&m_dataManagerThread);
-    m_dataManagerThread.start();
+    //m_dataManager->moveToThread(&m_dataManagerThread);
+    //m_dataManagerThread.start();
     //m_dataManager->start();
 
 
-    m_downloadManager = new DownloadManager();
-    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), m_dataManager, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
-    connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
-    connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
+//    m_downloadManager = new DownloadManager();
+//    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), m_dataManager, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
+//    connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
+//    connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), m_dataManager, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
 
-    connect(m_dataManager, SIGNAL(requestDownloadData(const QString &)), m_downloadManager, SLOT(append(const QString &)));
-    connect(m_dataManager, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));
-    connect(m_dataManager, SIGNAL(requestRealTimeStatisticsData(const QString &)), m_downloadManager, SLOT(requestRealTimeStatisticsData(const QString &)));
+//    connect(m_dataManager, SIGNAL(requestDownloadData(const QString &)), m_downloadManager, SLOT(requestFileDownload(const QString &)));
+//    connect(m_dataManager, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));
+//    connect(m_dataManager, SIGNAL(requestRealTimeStatisticsData(const QString &)), m_downloadManager, SLOT(requestRealTimeStatisticsData(const QString &)));
 
-    m_downloadManager->moveToThread(&m_downloadManagerThread);
-    m_downloadManagerThread.start();
+    //m_downloadManager->moveToThread(&m_downloadManagerThread);
+    //m_downloadManagerThread.start();
+
+//    QThreadPool::globalInstance()->setMaxThreadCount(4);
+//    QtConcurrent::run(m_downloadManager, &DownloadManager::run);
+//    QtConcurrent::run(clientPacketsParser, &ClientPacketsParser::startprocessOutgoingPackets);
+
 
     m_timer.setInterval(5000);
     m_timer.setSingleShot(false);
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
 
 
-    m_tableModel = new StocksTableModel(this);
-    m_sortFilterProxyModel = new SortFilterProxyModel(this);
-    m_sortFilterProxyModel->setSourceModel(m_tableModel);
-    m_sortFilterProxyModel->setDynamicSortFilter(true);
-    ui->tableViewStocks->setModel(m_sortFilterProxyModel);
-    connect(m_dataManager, SIGNAL(stocksLoaded(QMap<QString,Stock*>*)), m_tableModel, SLOT(setStocks(QMap<QString,Stock*>*)), Qt::QueuedConnection);
-
-    m_tableModel->setStocks(m_dataManager->allStocks());
 
 //qDebug()<<ui->tableViewStocks->height();
 //qDebug()<<ui->tableViewStocks->viewport()->height();
@@ -64,7 +72,7 @@ MainWindow::MainWindow(QWidget *parent) :
 //qDebug()<<ui->tableViewStocks->frameGeometry().height();
 //m_tableModel->setRowCount(ui->tableViewStocks->height()/rowHeight);
 
-QTimer::singleShot(0, this, SLOT(test()));
+QTimer::singleShot(1000, this, SLOT(test()));
     ui->tabCandlestick->showCandlesticks("000001");
 
 }
@@ -77,7 +85,7 @@ MainWindow::~MainWindow()
 
     //m_dataManager->quit();
     delete m_dataManager;
-    delete m_downloadManager;
+    //delete m_downloadManager;
 
     delete m_sortFilterProxyModel;
     delete m_tableModel;
@@ -99,7 +107,7 @@ void MainWindow::closeEvent(QCloseEvent *event){
     qDebug()<<"----------0-----------";
 
     m_downloadManagerThread.quit();
-    m_dataManagerThread.wait();
+    m_downloadManagerThread.wait();
     qDebug()<<"----------1-----------";
 
     event->accept();
@@ -149,9 +157,14 @@ void MainWindow::timeout(){
     m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
 }
 
+void MainWindow::stocksCountChanged(){
+    m_tableModel->setStocks(m_dataManager->allStocks()->values());
+}
+
 void MainWindow::test(){
-    m_tableModel->setRowCount(ui->tableViewStocks->viewport()->height()/20);
-    m_tableModel->setStocks(m_dataManager->allStocks());
+
+    m_dataManager->downloadRealTimeStatisticsData(0, 1, true);
+
 
 }
 

@@ -5,7 +5,7 @@
 #include <QTimer>
 
 #include "datamanager.h"
-#include "downloadmanager.h"
+//#include "downloadmanager.h"
 #include "stockstablemodel.h"
 
 
@@ -31,6 +31,7 @@ protected:
 
 private slots:
     void timeout();
+    void stocksCountChanged();
 
     void test();
 
@@ -39,12 +40,14 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
-    QThread m_dataManagerThread, m_downloadManagerThread;
-    DownloadManager *m_downloadManager;
-    DataManager *m_dataManager;
-
     StocksTableModel *m_tableModel;
     SortFilterProxyModel *m_sortFilterProxyModel;
+
+    QThread m_dataManagerThread, m_downloadManagerThread;
+    DataManager *m_dataManager;
+    //DownloadManager *m_downloadManager;
+
+
 
     QTimer m_timer;
 

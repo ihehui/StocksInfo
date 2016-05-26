@@ -67,55 +67,67 @@ DownloadManager::DownloadManager(QObject *parent)
       totalCount(0),
       overwriteoldFile(true)
 {
+
     localSaveDir = QApplication::applicationDirPath() + "/data";
     curFileName = "";
-    currentRealTimeQuoteDataReply = 0;
+
+    manager = new QNetworkAccessManager();
+
+
 }
 
 DownloadManager::~DownloadManager(){
     qDebug()<<"DownloadManager::~DownloadManager()";
+
+    delete manager;
 }
 
 
-void DownloadManager::append(const QStringList &urlList)
+void DownloadManager::requestFileDownload(const QStringList &urlList)
 {
     foreach (QString url, urlList)
-        append(QUrl::fromEncoded(url.toLocal8Bit()));
+        requestFileDownload(QUrl::fromEncoded(url.toLocal8Bit()));
 
     //if (downloadQueue.isEmpty())
     //   QTimer::singleShot(0, this, SIGNAL(finished()));
+
 }
 
-void DownloadManager::append(const QUrl &url)
+void DownloadManager::requestFileDownload(const QUrl &url)
 {
-    QMutexLocker locker(&mutex);
 
-    if (downloadQueue.isEmpty())
+    if (fileDownloadQueue.isEmpty())
         QTimer::singleShot(0, this, SLOT(startNextDownload()));
 
-    downloadQueue.enqueue(url);
+    fileDownloadQueue.enqueue(url);
     ++totalCount;
 }
 
-void DownloadManager::append(const QString &url){
-    append(QUrl::fromEncoded(url.toLocal8Bit()));
+void DownloadManager::requestFileDownload(const QString &url){
+    requestFileDownload(QUrl::fromEncoded(url.toLocal8Bit()));
 }
 
 void DownloadManager::requestRealTimeQuoteData(const QString &url){
+
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    currentRealTimeQuoteDataReply = manager.get(request);
-    connect(currentRealTimeQuoteDataReply, SIGNAL(finished()), SLOT(realTimeQuoteDataDownloadFinished()));
+    QNetworkReply *reply = manager->get(request);
+    connect(reply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+
 }
 
 void DownloadManager::requestRealTimeStatisticsData(const QString &url){
+    qDebug()<<"DownloadManager::requestRealTimeStatisticsData()";
+
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    QNetworkReply *reply = manager.get(request);
+    QNetworkReply *reply = manager->get(request);
     connect(reply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+
 }
 
 
 QString DownloadManager::saveFileName(const QUrl &url)
 {
+
     QString path = url.path();
     QString basename = QFileInfo(path).fileName();
     QString localPath = localSaveDir + "/" + basename;
@@ -142,6 +154,7 @@ QString DownloadManager::saveFileName(const QUrl &url)
 }
 
 void DownloadManager::setLocalSaveDir(const QString &path){
+
     localSaveDir = path;
     QDir dir;
     dir.mkpath(localSaveDir);
@@ -150,16 +163,15 @@ void DownloadManager::setLocalSaveDir(const QString &path){
 void DownloadManager::startNextDownload()
 {
     qDebug()<<"DownloadManager:"<<QThread::currentThreadId();
-    QMutexLocker locker(&mutex);
 
     curFileName = "";
-    if (downloadQueue.isEmpty()) {
+    if (fileDownloadQueue.isEmpty()) {
         printf("%d/%d files downloaded successfully\n", downloadedCount, totalCount);
         emit finished();
         return;
     }
 
-    QUrl url = downloadQueue.dequeue();
+    QUrl url = fileDownloadQueue.dequeue();
 //    QString filename = saveFileName(url);
 //    output.setFileName(filename);
 //    if (!output.open(QIODevice::WriteOnly)) {
@@ -172,12 +184,12 @@ void DownloadManager::startNextDownload()
 //    }
 
     QNetworkRequest request(url);
-    currentDownload = manager.get(request);
-    connect(currentDownload, SIGNAL(downloadProgress(qint64,qint64)),
+    currentFileDownload = manager->get(request);
+    connect(currentFileDownload, SIGNAL(downloadProgress(qint64,qint64)),
             SLOT(downloadProgress(qint64,qint64)));
-    connect(currentDownload, SIGNAL(finished()),
+    connect(currentFileDownload, SIGNAL(finished()),
             SLOT(downloadFinished()));
-    connect(currentDownload, SIGNAL(readyRead()),
+    connect(currentFileDownload, SIGNAL(readyRead()),
             SLOT(downloadReadyRead()));
 
     // prepare the output
@@ -202,62 +214,68 @@ void DownloadManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
         unit = "MB/s";
     }
 
-    qDebug()<<QString::fromLatin1("%1% %2").arg(speed, 3, 'f', 1).arg(unit);
+   // qDebug()<<QString::fromLatin1("%1% %2").arg(speed, 3, 'f', 1).arg(unit);
 }
 
 void DownloadManager::downloadFinished()
 {
     output.close();
 
-    if (currentDownload->error()) {
+    if (currentFileDownload->error()) {
         // download failed
-        fprintf(stderr, "Failed: %s\n", qPrintable(currentDownload->errorString()));
+        fprintf(stderr, "Failed: %s\n", qPrintable(currentFileDownload->errorString()));
     } else {
         printf("Succeeded.\n");
         ++downloadedCount;
 
-        emit dataDownloaded(curFileName, currentDownload->url());
+        emit dataDownloaded(curFileName, currentFileDownload->url());
     }
 
-    currentDownload->deleteLater();
+    currentFileDownload->deleteLater();
     startNextDownload();
+
 }
 
 void DownloadManager::downloadReadyRead()
 {
 
     if(curFileName.trimmed().isEmpty()){
-        QString header = QString(currentDownload->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
+        QString header = QString(currentFileDownload->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
         QString filename = localSaveDir + "/" + header;
         if(filename.isEmpty()){
-            filename = saveFileName(currentDownload->url());
+            filename = saveFileName(currentFileDownload->url());
         }
 
         output.setFileName(filename);
         if (!output.open(QIODevice::WriteOnly)) {
             fprintf(stderr, "Problem opening save file '%s' for download '%s': %s\n",
-                    qPrintable(filename), currentDownload->url().toEncoded().constData(),
+                    qPrintable(filename), currentFileDownload->url().toEncoded().constData(),
                     qPrintable(output.errorString()));
 
-            currentDownload->deleteLater();
+            currentFileDownload->deleteLater();
             startNextDownload();
             return;                 // skip this download
         }
         curFileName = filename;
     }
 
-    output.write(currentDownload->readAll());
+    output.write(currentFileDownload->readAll());
 }
 
 void DownloadManager::realTimeQuoteDataDownloadFinished(){
-    if(currentRealTimeQuoteDataReply->error() == QNetworkReply::NoError){
-        emit realTimeQuoteDataReceived(currentRealTimeQuoteDataReply->readAll());
-    }
+    qDebug()<<"DownloadManager::realTimeQuoteDataDownloadFinished()";
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if(!reply){return;}
 
-    currentRealTimeQuoteDataReply->deleteLater();
+    if(reply->error() == QNetworkReply::NoError){
+        emit realTimeQuoteDataReceived(reply->readAll());
+    }
+    reply->deleteLater();
+
 }
 
 void DownloadManager::realTimeStatisticsDataDownloadFinished(){
+    qDebug()<<"DownloadManager::realTimeStatisticsDataDownloadFinished() "<<QThread::currentThreadId();
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(!reply){return;}
 
@@ -266,3 +284,8 @@ void DownloadManager::realTimeStatisticsDataDownloadFinished(){
     }
     reply->deleteLater();
 }
+
+void DownloadManager::error(QNetworkReply::NetworkError code){
+    qDebug()<<"NetworkError:"<<code;
+}
+

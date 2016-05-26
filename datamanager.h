@@ -23,7 +23,8 @@ public:
     QMap<QString, Stock*> * allStocks() const;
 
 signals:
-    void stocksLoaded(QMap<QString,Stock*> *stocks);
+    void stocksLoaded(const QList<Stock*> &stocks);
+    void stocksCountChanged();
     void historicalDataRead(Stock * stock);
 //    void realTimeAskDataUpdated(Stock * stock);
     void realTimeAskDataUpdated(const RealTimeQuoteData &data);
@@ -47,7 +48,7 @@ public slots:
     void downloadRealTimeQuoteData(const QString &code);
     void realTimeQuoteDataReceived(const QByteArray &data);
 
-    void downloadRealTimeStatisticsData(const QString &code);
+    void downloadRealTimeStatisticsData(int pageIndex, int count = 0, bool allFields = false);
     void realTimeStatisticsDataReceived(const QByteArray &data);
 
 private slots:
@@ -57,6 +58,7 @@ private slots:
 
 private:
     QMutex mutex;
+    DownloadManager *m_downloadManager;
 
 
     //QMap<double, QCPFinancialData> *m_ohlcData; //index,QCPFinancialData. 基本交易数据
@@ -66,6 +68,7 @@ private:
     QString m_localSaveDir;
 
     QMap<QString, Stock*> *m_allStocks; //Code,Stock
+    int m_hsaTotalStocksCount;
 
 };
 

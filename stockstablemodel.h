@@ -22,13 +22,13 @@ public:
     QVariant headerData ( int section, Qt::Orientation orientation, int role = Qt::DisplayRole ) const;
 
 public slots:
-    void setStocks(QMap<QString, Stock *> *stocks);
+    void setStocks(const QList<Stock *> &stocks);
     void setRowCount(int count);
     void setStartIndex(int index);
 
 
 private:
-    QMap<QString, Stock*> *m_allStocks; //Code,Stock
+    QList<Stock*> m_allStocks; //Code,Stock
     int m_rowCount;
     int m_startIndex;
 
