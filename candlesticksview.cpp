@@ -79,6 +79,7 @@ Stock * CandlesticksView::currentStock(){
 
 void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
     if(!m_curStock){return;}
+    if(m_ohlcDataMap->isEmpty()){return;}
 
     if(!m_infoView){
         setInfoViewVisible(true);
@@ -102,6 +103,7 @@ void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
 
 void CandlesticksView::mousePressEvent(QMouseEvent *event){
     if(!m_curStock){return;}
+    if(m_ohlcDataMap->isEmpty()){return;}
 
     Q_UNUSED(event)
     //qDebug()<<QString("--mousePressEvent--");
@@ -109,6 +111,8 @@ void CandlesticksView::mousePressEvent(QMouseEvent *event){
 
 void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
     if(!m_curStock){return;}
+    if(m_ohlcDataMap->isEmpty()){return;}
+
 
     updateTradeInfoView(event->pos());
     //qDebug()<<QString("--mouseMoveEvent--");
@@ -116,6 +120,8 @@ void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
 
 void CandlesticksView::mouseReleaseEvent(QMouseEvent *event){
     if(!m_curStock){return;}
+    if(m_ohlcDataMap->isEmpty()){return;}
+
 
     Q_UNUSED(event)
     //qDebug()<<QString("--mouseReleaseEvent--");
@@ -147,12 +153,18 @@ void CandlesticksView::wheelEvent(QWheelEvent* event){
 
 void CandlesticksView::keyPressEvent(QKeyEvent *event){
     if(!m_curStock){return;}
+    if(event->key() != Qt::Key_Escape && m_ohlcDataMap->isEmpty()){return;}
+
 
     switch (event->key()) {
     case Qt::Key_Escape:
     {
-        //隐藏交易信息小窗口
-        setInfoViewVisible(false);
+        if(m_infoView && m_infoView->isVisible()){
+            //隐藏交易信息小窗口
+            setInfoViewVisible(false);
+        }else{
+            emit escape();
+        }
     }
         break;
 
@@ -191,9 +203,9 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
             m_focusedKey = m_rightKey;
         }
 
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_leftKey).time).toString("L: MM-dd");
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_focusedKey).time).toString("C: MM-dd");
-        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_rightKey).time).toString("R: MM-dd");
+//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_leftKey).time).toString("L: MM-dd");
+//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_focusedKey).time).toString("C: MM-dd");
+//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_rightKey).time).toString("R: MM-dd");
 
         //移动坐标轴
         if(event->modifiers() == Qt::ShiftModifier
@@ -224,9 +236,7 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
         updateCrossCurvePoint(pos);
 
 
-
         //updateVolumeYAxisRange();
-
 
     }
         break;
@@ -455,10 +465,10 @@ void CandlesticksView::drawCandlesticks(){
     volumeAxisRect->setMarginGroup(QCP::msLeft|QCP::msRight, group);
 
 
-//    readData("601398");
-//    rescaleAxes();
-//    xAxis->scaleRange(0.015, xAxis->range().upper);
-//    m_focusedKey = m_tradeExtraData->lastKey();
+    //    readData("601398");
+    //    rescaleAxes();
+    //    xAxis->scaleRange(0.015, xAxis->range().upper);
+    //    m_focusedKey = m_tradeExtraData->lastKey();
 
 }
 
@@ -504,14 +514,14 @@ void CandlesticksView::updateTradeInfoView(double curKey, double curValue, bool 
     if(ohlcData.open == 0){return;}
     TradeExtraData extraData = m_tradeExtraDataMap->value(m_focusedKey);
     m_infoView->updateTradeInfo(ohlcData, extraData, curValue, m_stockName);
-//    xAxis->setCrossCurvePoint(m_focusedKey, curValue);
-//    yAxis->setCrossCurvePoint(m_focusedKey, curValue);
+    //    xAxis->setCrossCurvePoint(m_focusedKey, curValue);
+    //    yAxis->setCrossCurvePoint(m_focusedKey, curValue);
 
-//    m_horizontalLine->start->setCoords(xAxis->range().lower, curValue);
-//    m_horizontalLine->end->setCoords(xAxis->range().upper, curValue);
-//    m_verticalLine->start->setCoords(curKey, m_yAxis->range().lower);
-//    m_verticalLine->end->setCoords(curKey, m_yAxis->range().upper);
-//    replot();
+    //    m_horizontalLine->start->setCoords(xAxis->range().lower, curValue);
+    //    m_horizontalLine->end->setCoords(xAxis->range().upper, curValue);
+    //    m_verticalLine->start->setCoords(curKey, m_yAxis->range().lower);
+    //    m_verticalLine->end->setCoords(curKey, m_yAxis->range().upper);
+    //    replot();
 }
 
 void CandlesticksView::updateCrossCurvePoint(const QPointF &pos){
@@ -561,11 +571,13 @@ void CandlesticksView::updateVolumeYAxisRange(){
 }
 
 void CandlesticksView::historicalDataRead(Stock *stock){
+    qDebug()<<"--CandlesticksView::historicalDataRead() "<<stock->name();
     Q_ASSERT(stock);
     if(!stock || stock->code() != m_stockCodeExpected){return;}
     m_curStock = stock;
     m_stockCode = stock->code();
     m_stockName = stock->name();
+    m_plotTitle->setText(m_stockName);
 
     m_ohlcDataMap = stock->ohlcDataMap();
     m_candlesticks->setData(m_ohlcDataMap, true); //TODO:optimize
@@ -575,6 +587,8 @@ void CandlesticksView::historicalDataRead(Stock *stock){
 
     m_tradeExtraDataMap = stock->tradeExtraDataMap();
 
+    m_volumeNeg->clearData();
+    m_volumePos->clearData();
     for(QMap<double, TradeExtraData>::const_iterator it = m_tradeExtraDataMap->constBegin(); it!=m_tradeExtraDataMap->constEnd(); it++){
         QCPFinancialData ohlcData = m_ohlcDataMap->value(it.key());
         TradeExtraData extraData = it.value();
@@ -582,8 +596,10 @@ void CandlesticksView::historicalDataRead(Stock *stock){
     }
 
     rescaleAxes();
-    xAxis->scaleRange(0.015, xAxis->range().upper);
-    m_focusedKey = m_tradeExtraDataMap->lastKey();
+    //xAxis->scaleRange(0.015, xAxis->range().upper);
+    if(!m_tradeExtraDataMap->isEmpty()){
+        m_focusedKey = m_tradeExtraDataMap->lastKey();
+    }
 
     replot();
 }

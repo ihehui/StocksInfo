@@ -37,6 +37,8 @@ private slots:
     void stockSelected(Stock *stock);
     void allStocksLoaded();
 
+    void switchPage();
+
     void timeout();
 
     void test();
@@ -46,14 +48,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
-//    StocksTableModel *m_tableModel;
-//    SortFilterProxyModel *m_sortFilterProxyModel;
-
-    QThread m_dataManagerThread, m_downloadManagerThread;
     DataManager *m_dataManager;
-    //DownloadManager *m_downloadManager;
-
-
 
     QTimer m_timer;
 

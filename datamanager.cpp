@@ -98,10 +98,9 @@ QList<Stock*> DataManager::categoryStocks(quint32 categoryID) const{
 bool DataManager::readHistoricalData(QString *code, int offset){
     qDebug()<<"DataManager-readHistoricalData:"<<QThread::currentThreadId();
 
-    QMutexLocker locker(&mutex);
-
     if(!code){return false;}
     QString newCode = *code;
+    qDebug()<<"-------newCode:"<<newCode;
 
     int size = m_allStocks->size();
     if(!size){return false;}
@@ -112,29 +111,42 @@ bool DataManager::readHistoricalData(QString *code, int offset){
         int index = allStocks.indexOf(newCode);
         index += newOffset;
 
-        if(newOffset > 0 && index > size){
-            index = newOffset - (size - allStocks.indexOf(newCode));
-        }else if(index < 0){
-            index = size - (newOffset - allStocks.indexOf(newCode)) - 1;
+        if(newOffset > 0){
+            index = index%size;
+        }else if(newOffset < 0){
+            if(index < 0){
+                index += size;
+            }
         }
+
+//        if(newOffset > 0 && index >= size){
+//            index = newOffset - (size - allStocks.indexOf(newCode));
+//        }else if(index <= 0){
+//            index = size - (newOffset - allStocks.indexOf(newCode)) - 1;
+//        }
         newCode = allStocks.at(index);
         *code = newCode;
-    }
-
-    QFile file(m_localSaveDir+"/"+newCode+".csv");
-    if(!file.exists()){
-        downloadHistoricalData(newCode);
-        return false;
-    }
-    if(!file.open(QIODevice::ReadOnly|QIODevice::Text)){
-        qDebug()<<file.errorString();
-        return false;
     }
 
     Stock *stock = m_allStocks->value(newCode);
     if(!stock){
         stock = new Stock(newCode, "");
         m_allStocks->insert(newCode, stock);
+    }
+
+    loadHistoricalTradeData(stock);
+    return true;
+}
+
+bool DataManager::readHistoricalTradeDataFile(const QString &fileName){
+
+    QFile file(fileName);
+    if(!file.exists()){
+        return false;
+    }
+    if(!file.open(QIODevice::ReadOnly|QIODevice::Text)){
+        qDebug()<<file.errorString();
+        return false;
     }
 
     QTextStream in(&file);
@@ -145,11 +157,11 @@ bool DataManager::readHistoricalData(QString *code, int offset){
     }
     qDebug()<<title;
 
-    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
-    QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
-    QVector<double> *futuresDeliveryDates = stock->futuresDeliveryDates();
+    Stock *stock = 0;
+    QMap<double, QCPFinancialData> *ohlcDataMap = 0;
+    QMap<double, TradeExtraData>  *tradeExtraDataMap = 0;
+    QVector<double> *futuresDeliveryDates = 0;
 
-    QVector< double >timeVector, openVector, highVector, lowVector, closeVector, volVector;
     uint index = (std::numeric_limits<uint>::max)();
     while (!in.atEnd()) {
         QStringList dataList = in.readLine().split(",");
@@ -158,9 +170,23 @@ bool DataManager::readHistoricalData(QString *code, int offset){
             return false;
         }
 
+        if(!stock){
+            QString code = dataList.at(1);
+            code = code.remove("'");;
+            stock = m_allStocks->value(code);
+            if(!stock){
+                stock = new Stock(code, "");
+                m_allStocks->insert(code, stock);
+            }
+
+            ohlcDataMap = stock->ohlcDataMap();
+            tradeExtraDataMap = stock->tradeExtraDataMap();
+            futuresDeliveryDates = stock->futuresDeliveryDates();
+        }
+
+
         double open = dataList.at(6).toDouble();
         if(isZero(open)){continue;} //停牌
-        openVector.append(open);
 
         QDateTime dateTime = QDateTime::fromString(dataList.at(0), "yyyy-MM-dd");
         dateTime.setTime(QTime(15, 0));
@@ -183,43 +209,41 @@ bool DataManager::readHistoricalData(QString *code, int offset){
 
 
         double high = dataList.at(4).toDouble();
-        highVector.append(high);
-
         double low = dataList.at(5).toDouble();
-        lowVector.append(low);
-
         double close = dataList.at(3).toDouble();
-        closeVector.append(close);
-
-
         double preClose = dataList.at(7).toDouble();
-
-        double volume_Hand = dataList.at(11).toDouble();
-        volVector.append(volume_Hand);
-
+        double volume = dataList.at(11).toDouble();
         double turnover = dataList.at(12).toDouble();
-        double turnoverRate = dataList.at(10).toDouble();
+        double exchangeRatio = dataList.at(10).toDouble();
 
         ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
-        tradeExtraDataMap->insert(index, TradeExtraData(time_t, preClose, volume_Hand, turnover, turnoverRate));
+        tradeExtraDataMap->insert(index, TradeExtraData(time_t, preClose, volume, turnover, exchangeRatio));
 
         //数据文件为倒序。不可使用日期做KEY，日期有空档。
         index--;
         qApp->processEvents();
     }
 
-//    emit historicalDataRead(newCode);
-    emit historicalDataRead(stock);
+    if(stock){
+        emit historicalDataRead(stock);
+        saveHistoricalTradeData(stock);
+    }
 
     return true;
 }
 
-void DataManager::downloadHistoricalData(const QString &code){
+void DataManager::downloadHistoricalData(const QString &code, const QString &startDate, const QString &endDate){
     qDebug()<<"-----DataManager::downloadData(...)"<<" currentThreadId:"<<QThread::currentThreadId();
 
     //m_downloadManager->append(QUrl(QString("http://quotes.money.163.com/service/chddata.html?code=%1&start=20000720&end=20150508")));
 
     QString url = QString("http://quotes.money.163.com/service/chddata.html?code=%1%2").arg(code.startsWith("6")?"0":"1").arg(code);
+    if(!startDate.isEmpty()){
+        url += QString("&start=%1").arg(startDate);
+    }
+    if(!endDate.isEmpty()){
+        url += QString("&end=%1").arg(endDate);
+    }
     emit requestDownloadData(url);
 
 //    m_downloadManager->append();
@@ -227,10 +251,11 @@ void DataManager::downloadHistoricalData(const QString &code){
 
 void DataManager::historicalDataDownloaded(const QString &fileName, const QUrl &url){
     qDebug()<<"---DataManager::dataDownloaded(...)"<<" fileName:"<<fileName<<" currentThreadId:"<<QThread::currentThreadId();
-    QFileInfo fi(fileName);
-    QString code = fi.baseName();
+//    QFileInfo fi(fileName);
+//    QString code = fi.baseName();
+//    readHistoricalData(&code, 0);
+    readHistoricalTradeDataFile(fileName);
 
-    readHistoricalData(&code, 0);
 }
 
 void DataManager::downloadRealTimeQuoteData(const QString &code){
@@ -378,7 +403,6 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
 }
 
 void DataManager::readStocksList(){
-    QMutexLocker locker(&mutex);
 
     qDeleteAll(m_allStocks->begin(), m_allStocks->end());
     m_allStocks->clear();
@@ -545,6 +569,8 @@ bool DataManager::loadAllCategories(){
 }
 
 bool DataManager::saveCategory(Category *category){
+    if(!category){return false;}
+
     if(!localStocksDataDB.isValid()){
         if(!openDatabase()){
             return false;
@@ -577,6 +603,113 @@ bool DataManager::saveCategoryMember(quint32 categoryID, const QString &stockCod
         qCritical()<<msg;
         return false;
     }
+    return true;
+}
+
+bool DataManager::loadHistoricalTradeData(Stock * stock){
+    if(!stock){return false;}
+
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = QString("SELECT TradeDate, Open, High, Low, Close, PreClose, Volume, Turnover, ExchangeRatio From DailyTradeinfo WHERE Code='%1' ORDER BY TradeDate DESC; ").arg(stock->code());
+    qDebug()<<"statement:"<<statement;
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not query trade info from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+
+    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
+    QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
+
+    uint index = (std::numeric_limits<uint>::max)();
+    while (query.next()) {
+        int idx = 0;
+        uint tradeDate = query.value(idx++).toDateTime().toTime_t();
+        double open = query.value(idx++).toDouble();
+        double high = query.value(idx++).toDouble();
+        double low = query.value(idx++).toDouble();
+        double close = query.value(idx++).toDouble();
+        double preClose = query.value(idx++).toDouble();
+        double volume = query.value(idx++).toDouble();
+        double turnover = query.value(idx++).toDouble();
+        double exchangeRatio = query.value(idx++).toDouble();
+
+
+        ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
+        tradeExtraDataMap->insert(index, TradeExtraData(tradeDate, preClose, volume, turnover, exchangeRatio));
+
+        index--;
+        qApp->processEvents();
+    }
+
+    if(ohlcDataMap->isEmpty()){
+        QDate date = QDate::currentDate();
+        date = date.addMonths(-12);
+        downloadHistoricalData(stock->code(), date.toString("yyyyMMdd"));
+        return false;
+    }
+
+    emit historicalDataRead(stock);
+    return true;
+
+}
+
+bool DataManager::saveHistoricalTradeData(Stock * stock){
+    if(!stock){return false;}
+
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = "Begin Transaction;";
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        qCritical() << QString("Can not save stock trade info to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        return false;
+    }
+
+    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
+    QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
+
+    foreach (double index, ohlcDataMap->keys()) {
+        QCPFinancialData ohlcData = ohlcDataMap->value(index);
+        TradeExtraData tradeExtraDat = tradeExtraDataMap->value(index);
+        QDateTime dateTime = QDateTime::fromTime_t(tradeExtraDat.time);
+        dateTime.setTime(QTime(15, 0, 0));
+        query.prepare("INSERT INTO DailyTradeinfo(Code, TradeDate, Open, High, Low, Close, PreClose, Volume, Turnover, ExchangeRatio)"
+                      "VALUES(:Code, :TradeDate, :Open, :High, :Low, :Close, :PreClose, :Volume, :Turnover, :ExchangeRatio); ");
+        query.bindValue(":Code", stock->code());
+        query.bindValue(":TradeDate", dateTime.toString("yyyy-MM-dd hh:mm:ss"));
+        query.bindValue(":Open", ohlcData.open);
+        query.bindValue(":High", ohlcData.high);
+        query.bindValue(":Low", ohlcData.low);
+        query.bindValue(":Close", ohlcData.close);
+        query.bindValue(":PreClose", tradeExtraDat.preClose);
+        query.bindValue(":Volume", tradeExtraDat.volume);
+        query.bindValue(":Turnover", tradeExtraDat.turnover);
+        query.bindValue(":ExchangeRatio", tradeExtraDat.exchangeRatio);
+        query.exec();
+
+        qApp->processEvents();
+    }
+    statement = "Commit Transaction;";
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not save stock trade info to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+
     return true;
 }
 

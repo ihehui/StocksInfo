@@ -43,9 +43,10 @@ public slots:
 
     //读取交易数据
     bool readHistoricalData(QString *code, int offset = 0);
+    bool readHistoricalTradeDataFile(const QString &fileName);
 
     //下载历史交易数据
-    void downloadHistoricalData(const QString &code);
+    void downloadHistoricalData(const QString &code, const QString &startDate = "", const QString &endDate = "");
     void historicalDataDownloaded(const QString &fileName, const QUrl &url);
 
     //实时行情数据
@@ -67,6 +68,9 @@ private slots:
     bool saveCategory(Category *category);
     bool saveCategoryMember(quint32 categoryID, const QString &stockCode);
 
+    bool loadHistoricalTradeData(Stock * stock);
+    bool saveHistoricalTradeData(Stock * stock);
+
 private:
     bool openDatabase(bool reopen = false);
     bool initLocalDatabase(QString *errorMessage = 0);
@@ -80,7 +84,6 @@ private:
 
 
 private:
-    QMutex mutex;
     QString m_localSaveDir;
 
     QString localDataFilePath;
