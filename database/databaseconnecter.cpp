@@ -34,12 +34,10 @@
 
 #include "databaseconnecter.h"
 #include "databaseconnecterdialog.h"
-#include "../../core/database/databaseutility.h"
+#include "databaseutility.h"
 
 DatabaseConnecter::DatabaseConnecter(QObject *parent) :
     QObject(parent) {
-
-    qDebug() << "----DatabaseConnecter::DatabaseConnecter(QObject *parent)";
 
     if (parent && parent->isWidgetType()) {
         this->parentWidget = qobject_cast<QWidget *> (parent);

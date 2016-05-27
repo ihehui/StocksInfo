@@ -4,6 +4,8 @@
 #include <QThread>
 #include <QMap>
 #include <QVector>
+#include <QtSql>
+
 #include "stock.h"
 
 
@@ -22,9 +24,11 @@ public:
     Stock * stock(const QString &code) const;
     QMap<QString, Stock*> * allStocks() const;
 
+    QList<Stock*> categoryStocks(quint32 categoryID) const;
+
 signals:
-    void stocksLoaded(const QList<Stock*> &stocks);
-    void stocksCountChanged();
+    void allStocksLoaded();
+
     void historicalDataRead(Stock * stock);
 //    void realTimeAskDataUpdated(Stock * stock);
     void realTimeAskDataUpdated(const RealTimeQuoteData &data);
@@ -51,24 +55,56 @@ public slots:
     void downloadRealTimeStatisticsData(int pageIndex, int count = 0, bool allFields = false);
     void realTimeStatisticsDataReceived(const QByteArray &data);
 
+    bool loadAllStocks();
+
 private slots:
-    //TODO:MUTEX
     void readStocksList();
+
+    bool saveStockInfoToDB(Stock * stock);
+    bool saveStocksInfoToDB(const QList<Stock*> &stocks);
+
+    bool loadAllCategories();
+    bool saveCategory(Category *category);
+    bool saveCategoryMember(quint32 categoryID, const QString &stockCode);
+
+private:
+    bool openDatabase(bool reopen = false);
+    bool initLocalDatabase(QString *errorMessage = 0);
+
+    QSqlQuery queryDatabase(const QString & queryString, bool localConfigDatabase) ;
+
+    QSqlQuery queryDatabase(const QString & queryString, const QString &connectionName, const QString &driver,
+                            const QString &host, int port, const QString &user, const QString &passwd,
+                            const QString &databaseName, HEHUI::DatabaseType databaseType) ;
+
 
 
 private:
     QMutex mutex;
-    DownloadManager *m_downloadManager;
-
-
-    //QMap<double, QCPFinancialData> *m_ohlcData; //index,QCPFinancialData. 基本交易数据
-    //QMap<double, TradeExtraData> *m_tradeExtraData; //index,TradeExtraData. 交易数据
-    //QVector<double> m_futuresDeliveryDates; //index. Futures delivery,期指交割日，忽略放假顺延
-
     QString m_localSaveDir;
 
+    QString localDataFilePath;
+    QSqlDatabase localStocksDataDB;
+    //SQLITE
+    QString m_localDBConnectionName;
+    QString m_localDBName;
+    QString m_localDBDriver;
+    //MySQL
+    QString m_remoteDBConnectionName;
+    QString m_remoteDBDriver;
+    QString m_remoteDBServerHost;
+    quint16 m_remoteDBServerPort;
+    QString m_remoteDBUserName;
+    QString m_remoteDBUserPassword;
+    QString m_remoteDBName;
+
+    DownloadManager *m_downloadManager;
+
     QMap<QString, Stock*> *m_allStocks; //Code,Stock
+    QHash<quint32, Category*> m_allCategories; //id, Category
     int m_hsaTotalStocksCount;
+
+
 
 };
 

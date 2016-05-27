@@ -2,6 +2,7 @@
 
 #include <QDebug>
 
+
 StocksTableModel::StocksTableModel(QObject *parent)
     :QAbstractTableModel(parent)
 {
@@ -162,9 +163,9 @@ QVariant StocksTableModel::data ( const QModelIndex & index, int role) const {
             break;
         }
     }
-//    if(role == Qt::UserRole){
-//        return info->name();
-//    }
+    if(role == Qt::UserRole){
+        return row;
+    }
 
     return QVariant();
 
@@ -247,6 +248,13 @@ QVariant StocksTableModel::headerData ( int section, Qt::Orientation orientation
     return QVariant();
 }
 
+Stock * StocksTableModel::getStock(const QModelIndex & index){
+    if(!index.isValid()){
+        return 0;
+    }
+
+    return m_allStocks.at(index.data(Qt::UserRole).toInt());
+}
 
 void StocksTableModel::setStocks(const QList<Stock *> &stocks){
     qDebug()<<"StocksTableModel::setStocks(...)";

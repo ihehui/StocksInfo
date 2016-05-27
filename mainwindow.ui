@@ -73,7 +73,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QTableView" name="tableViewStocks">
+         <widget class="StocksTableView" name="tableViewStocks">
           <property name="editTriggers">
            <set>QAbstractItemView::NoEditTriggers</set>
           </property>
@@ -752,6 +752,11 @@
    <extends>QWidget</extends>
    <header location="global">candlesticksview.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>StocksTableView</class>
+   <extends>QTableView</extends>
+   <header>stockstableview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

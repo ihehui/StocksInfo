@@ -1,6 +1,17 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#ifdef Q_OS_WIN
+#define OS_IS_WINDOWS 1
+#else
+#define OS_IS_WINDOWS 0
+#endif
+
+#include <QString>
+
+
+
+
 const long OneHundredMillion = 100000000;
 
 bool isZero(double d);
@@ -29,15 +40,19 @@ enum PeriodType{
 
 };
 
+namespace HEHUI {
+enum DatabaseType {
+        OTHER = 0,
+        MYSQL = 1,
+        SQLITE = 2,
+        POSTGRESQL = 3,
+        FIREBIRD = 4,
+        DB2 = 5,
+        ORACLE = 6,
+        M$SQLSERVER = 7,
+        M$ACCESS =8,
 
-
-
-
-
-
-
-
-
-
+};
+}
 
 #endif // COMMON_H

@@ -66,7 +66,7 @@ CandlesticksView::~CandlesticksView(){
 }
 
 void CandlesticksView::setDataManager(DataManager *manager){
-    if(!manager){return;}
+    //if(!manager){return;}
     m_dataManager = manager;
     //m_stockCode = m_allStocks.first();
     //connect(m_dataManager, SIGNAL(historicalDataRead(QString)), this, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);

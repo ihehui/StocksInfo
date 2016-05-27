@@ -8,6 +8,20 @@
 
 class QCPFinancialData;
 
+class Category
+{
+public:
+  Category();
+  Category(quint32 id, const QString &name, const QString &systemCode, const QStringList &stocks = QStringList());
+  ~Category();
+
+  quint32 id;
+  QString name;
+  QString systemCode;
+  QStringList stocks; //Stock code list
+};
+
+
 
 class TradeExtraData
 {

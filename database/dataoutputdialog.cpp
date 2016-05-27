@@ -11,8 +11,8 @@
 #include "dataoutputdialog.h"
 #include "ui_dataoutputdialog.h"
 
-//#include "../../../shared/gui/dataprint.h"
-#include "HHSharedGUI/hdataprint.h"
+#include "dataprint.h"
+
 
 
 namespace HEHUI{

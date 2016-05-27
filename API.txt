@@ -14,3 +14,5 @@ http://quotes.money.163.com/hs/service/diyrank.php?page=0&query=STYPE%3AEQA&fiel
 历史成交数据（CSV）
 http://quotes.money.163.com/service/chddata.html?code=0601398&start=20000720&end=20150508
 http://quotes.money.163.com/service/chddata.html?code=1000001&start=19910403&end=20160520&fields=TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;TURNOVER;VOTURNOVER;VATURNOVER;TCAP;MCAP
+
+http://quotes.money.163.com/trade/lsjysj_zhishu_399300.html

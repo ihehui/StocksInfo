@@ -33,11 +33,9 @@
 
 #include <QObject>
 #include <QtSql>
+#include "common.h"
 
-#include "../../core/global_core.h"
-#include "../guilib.h"
-
-class GUI_LIB_API DatabaseConnecter: public QObject {
+class DatabaseConnecter: public QObject {
 
     Q_OBJECT
 

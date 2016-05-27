@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/Stocks.sql</file>
+    </qresource>
+</RCC>

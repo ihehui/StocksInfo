@@ -7,8 +7,6 @@
 #include <QMessageBox>
 #include <QFile>
 
-#include "../guilib.h"
-
 
 namespace Ui {
 class DataOutputDialogUI;
@@ -16,7 +14,7 @@ class DataOutputDialogUI;
 
 namespace HEHUI {
 
-class GUI_LIB_API DataOutputDialog: public QDialog
+class DataOutputDialog: public QDialog
 {
     Q_OBJECT
 

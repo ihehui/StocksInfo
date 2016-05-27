@@ -38,11 +38,10 @@
 #include <QSqlQuery>
 #include <QSqlError>
 
-#include "../global_core.h"
-#include "../core_lib.h"
+#include "common.h"
 
 
-class CORE_LIB_API DatabaseUtility :public QObject {
+class DatabaseUtility :public QObject {
     Q_OBJECT
 
 public:

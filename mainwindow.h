@@ -9,6 +9,9 @@
 #include "stockstablemodel.h"
 
 
+
+using namespace HEHUI;
+
 namespace Ui {
 class MainWindow;
 }
@@ -30,8 +33,11 @@ protected:
     void updateRealTimeAskData(const RealTimeQuoteData &data);
 
 private slots:
+    void stockActivated(Stock *stock);
+    void stockSelected(Stock *stock);
+    void allStocksLoaded();
+
     void timeout();
-    void stocksCountChanged();
 
     void test();
 
@@ -40,8 +46,8 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
-    StocksTableModel *m_tableModel;
-    SortFilterProxyModel *m_sortFilterProxyModel;
+//    StocksTableModel *m_tableModel;
+//    SortFilterProxyModel *m_sortFilterProxyModel;
 
     QThread m_dataManagerThread, m_downloadManagerThread;
     DataManager *m_dataManager;

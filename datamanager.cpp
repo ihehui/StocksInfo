@@ -4,14 +4,29 @@
 #include "stock.h"
 
 #include "downloadmanager.h"
+#include "database/databaseconnecter.h"
+#include "database/databaseutility.h"
 
-
+//Q_IMPORT_PLUGIN(qsqlite)
+//Q_IMPORT_PLUGIN(qsqlmysql)
 
 DataManager::DataManager(QObject *parent) : QObject(parent)
 {
     qRegisterMetaType<RealTimeQuoteData>("RealTimeQuoteData");
     qRegisterMetaType<QList<Stock*>>("QList<Stock*>");
 
+    m_localSaveDir = QApplication::applicationDirPath() + "/data";
+    localDataFilePath = m_localSaveDir + "/stocks.db";
+    m_localDBConnectionName = "LOCAL_STOCKS_DB";
+    m_localDBName = "stocks.db";
+    m_localDBDriver = "QSQLITE";
+    m_remoteDBConnectionName = "REMOTE_STOCKS_DB";
+    m_remoteDBDriver = "QMYSQL";
+    m_remoteDBServerHost = "127.0.0.1";
+    m_remoteDBServerPort = 3306;
+    m_remoteDBUserName = "root";
+    m_remoteDBUserPassword = "";
+    m_remoteDBName = "stocks";
 
     m_downloadManager = new DownloadManager();
     connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
@@ -27,13 +42,10 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
 
     m_allStocks = new QMap<QString, Stock*>();
     m_hsaTotalStocksCount = 0;
-    readStocksList();
 
-//    m_downloadManager = new DownloadManager(this);
-//    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(dataDownloaded(const QString &, const QUrl &)));
-
-    m_localSaveDir = QApplication::applicationDirPath()+"/data";
     qDebug()<<"DataManager0:"<<QThread::currentThreadId();
+
+   //QTimer::singleShot(0, this, SLOT(loadAllStocks()));
 
 }
 
@@ -60,6 +72,27 @@ Stock * DataManager::stock(const QString &code) const{
 
 QMap<QString, Stock*> * DataManager::allStocks() const{
     return m_allStocks;
+}
+
+QList<Stock*> DataManager::categoryStocks(quint32 categoryID) const{
+    qDebug()<<"--DataManager::categoryStocks()";
+    if(categoryID == 0){
+        return m_allStocks->values();
+    }
+
+    Category *cat = m_allCategories.value(categoryID);
+    if(!cat){return QList<Stock*>();}
+
+    QList<Stock*> list;
+    QStringList codes = cat->stocks;
+    foreach (QString code, codes) {
+        Stock *stock = m_allStocks->value(code);
+        Q_ASSERT(stock);
+        list.append(stock);
+    }
+
+    return list;
+
 }
 
 bool DataManager::readHistoricalData(QString *code, int offset){
@@ -289,7 +322,8 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
     if(m_hsaTotalStocksCount < 1){
         m_hsaTotalStocksCount = object["total"].toInt();
     }
-    bool newStockCreated = false;
+    bool initMode = m_allStocks->isEmpty();
+    QList<Stock*> stocksToBeSaved;
 
     QString time = object["time"].toString();
     QJsonArray array = object["list"].toArray();
@@ -305,7 +339,7 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         if(!stock){
             stock = new Stock(code, name, this);
             m_allStocks->insert(code, stock);
-            newStockCreated = true;
+            stocksToBeSaved.append(stock);
         }
 
         RealTimeStatisticsData *statisticsData = stock->realTimeStatisticsData();
@@ -329,9 +363,17 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         statisticsData->fiveMinsChange = infoObj["FIVE_MINUTE"].toDouble();
 
     }
-    if(newStockCreated){
-        emit stocksCountChanged();
+
+    if(initMode){
+        loadAllCategories();
+        emit allStocksLoaded();
     }
+
+    if(!stocksToBeSaved.isEmpty()){
+        saveStocksInfoToDB(stocksToBeSaved);
+    }
+
+
 
 }
 
@@ -359,15 +401,319 @@ void DataManager::readStocksList(){
 
     if(m_allStocks->isEmpty()){
         downloadRealTimeStatisticsData(0, 10000, true);
-    }else{
-        emit stocksCountChanged();
     }
 
 
     //emit stocksLoaded(m_allStocks->values());
 }
 
+bool DataManager::loadAllStocks(){
 
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = QString("SELECT Code, Name From Stocks; ");
+    qDebug()<<"statement:"<<statement;
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not query stocks from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+
+    while (query.next()) {
+        QString code = query.value(0).toString();
+        QString name = query.value(1).toString();
+        if(!m_allStocks->contains(code)){
+            Stock * stock = new Stock(code, name, this);
+            m_allStocks->insert(code, stock);
+        }
+        qApp->processEvents();
+    }
+
+    if(!m_allStocks->isEmpty()){
+        loadAllCategories();
+        emit allStocksLoaded();
+    }
+
+
+    downloadRealTimeStatisticsData(0, 5000, true);
+
+    return true;
+
+}
+
+bool DataManager::saveStockInfoToDB(Stock * stock){
+    if(!stock){return false;}
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+    QString statement = QString("INSERT INTO Stocks(Code, Name) VALUES('%1', '%2'); ").arg(stock->code()).arg(stock->name());
+    qDebug()<<"statement:"<<statement;
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not save stock info to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    return true;
+}
+
+bool DataManager::saveStocksInfoToDB(const QList<Stock*> &stocks){
+    if(stocks.isEmpty()){return false;}
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = "Begin Transaction;";
+    query.exec(statement);
+    foreach (Stock *stock, stocks) {
+        statement = QString("INSERT INTO Stocks(Code, Name) VALUES('%1', '%2'); ").arg(stock->code()).arg(stock->name());
+        query.exec(statement);
+
+        qApp->processEvents();
+    }
+    statement = "Commit Transaction;";
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not save stocks info to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    return true;
+}
+
+bool DataManager::loadAllCategories(){
+
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = QString("SELECT * From Categories; ");
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not query categories from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    while (query.next()) {
+        quint32 id = query.value(0).toUInt();
+        QString name = query.value(1).toString();
+        QString systemCode = query.value(2).toString();
+
+        if(!m_allCategories.contains(id)){
+            Category * cat = new Category(id, name, systemCode);
+            m_allCategories.insert(id, cat);
+        }
+        qApp->processEvents();
+    }
+
+
+    statement = QString("SELECT * From CategoryMembers; ");
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not query category members from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    while (query.next()) {
+        quint32 catID = query.value(0).toUInt();
+        QString stockCode = query.value(1).toString();
+        Category * cat = m_allCategories.value(catID);
+        Q_ASSERT(cat);
+        if(!cat){continue;}
+        cat->stocks.append(stockCode);
+
+        qApp->processEvents();
+    }
+
+    return true;
+
+}
+
+bool DataManager::saveCategory(Category *category){
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = QString("INSERT INTO Categories(Name, SystemCode) VALUES('%1', '%2'); ").arg(category->name).arg(category->systemCode);
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not save category to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    return true;
+}
+
+bool DataManager::saveCategoryMember(quint32 categoryID, const QString &stockCode){
+    if(!localStocksDataDB.isValid()){
+        if(!openDatabase()){
+            return false;
+        }
+    }
+    QSqlQuery query(localStocksDataDB);
+
+    QString statement = QString("INSERT INTO CategoryMembers(CategoryID, StockCode) VALUES(%1, '%2'); ").arg(categoryID).arg(stockCode);
+    if(!query.exec(statement)){
+        QSqlError error = query.lastError();
+        QString msg = QString("Can not save category member to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+        qCritical()<<msg;
+        return false;
+    }
+    return true;
+}
+
+bool DataManager::openDatabase(bool reopen){
+
+    //Check Local Database
+    bool needInitLocalDB = false;
+    QDir dir;
+    dir.mkpath(m_localSaveDir);
+    if(!QFile(localDataFilePath).exists()){
+        needInitLocalDB = true;
+    }
+
+    if(reopen){
+        DatabaseUtility::closeDBConnection(m_localDBConnectionName);
+    }
+
+    //QSqlDatabase db = QSqlDatabase::database(LOCAL_USERDATA_DB_CONNECTION_NAME);
+    localStocksDataDB = QSqlDatabase::database(m_localDBConnectionName);
+    if(!localStocksDataDB.isValid()){
+        QSqlError err;
+        DatabaseUtility databaseUtility;
+        err = databaseUtility.openDatabase(m_localDBConnectionName,
+                                           m_localDBDriver,
+                                           "",
+                                           0,
+                                           "",
+                                           "",
+                                           localDataFilePath,
+                                           HEHUI::SQLITE);
+        if (err.type() != QSqlError::NoError) {
+            qCritical() << QString("An error occurred when opening the database! %1").arg(err.text());
+            return false;
+        }
+
+    }
+
+    localStocksDataDB = QSqlDatabase::database(m_localDBConnectionName);
+    if(!localStocksDataDB.isOpen()){
+        qCritical()<<QString("Database is not open! %1").arg(localStocksDataDB.lastError().text());
+        return false;
+    }
+
+
+    if(needInitLocalDB){
+        if(!initLocalDatabase()){
+            return false;
+        }
+    }
+
+    return true;
+
+
+
+}
+
+bool DataManager::initLocalDatabase(QString *errorMessage){
+
+    if(!localStocksDataDB.isValid() || !localStocksDataDB.isOpen()){
+        if(errorMessage){
+            *errorMessage = tr("Database Invalid Or Not Open!");
+        }
+        return false;
+    }
+
+    QSqlQuery query;
+    QSqlError error = DatabaseUtility::excuteSQLScriptFromFile(localStocksDataDB, "://resources/Stocks.sql", "UTF-8", &query, true);
+    if(error.type() != QSqlError::NoError){
+        QString msg = error.text();
+        if(errorMessage){
+            *errorMessage = msg;
+        }
+        return false;
+    }
+
+
+//    QString statement = QString("insert into Stocks(Code) values('%1')").arg("000001");
+//    if(!query.exec(statement)){
+//        QSqlError error = query.lastError();
+//        QString msg = QString("Can not initialize user database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+//        qCritical()<<msg;
+//        if(errorMessage){
+//            *errorMessage = msg;
+//        }
+//        return false;
+//    }
+
+    return true;
+
+}
+
+QSqlQuery DataManager::queryDatabase(const QString & queryString, bool localConfigDatabase) {
+
+    QSqlQuery query;
+    DatabaseUtility du;
+
+    if(localConfigDatabase){
+        query = du.queryDatabase(queryString,
+                                 m_localDBConnectionName,
+                                 m_localDBDriver,
+                                 "",
+                                 0,
+                                 "",
+                                 "",
+                                 localDataFilePath,
+                                 HEHUI::SQLITE);
+    }else{
+        query = du.queryDatabase(queryString,
+                                 m_remoteDBConnectionName,
+                                 m_remoteDBDriver,
+                                 m_remoteDBServerHost,
+                                 m_remoteDBServerPort,
+                                 m_remoteDBUserName,
+                                 m_remoteDBUserPassword,
+                                 m_remoteDBName,
+                                 HEHUI::MYSQL);
+    }
+
+    return query;
+
+
+}
+
+
+QSqlQuery DataManager::queryDatabase(const QString & queryString, const QString &connectionName, const QString &driver,
+                                         const QString &host, int port, const QString &user, const QString &passwd,
+                                         const QString &databaseName, HEHUI::DatabaseType databaseType) {
+
+
+    QSqlQuery query;
+    DatabaseUtility du(this);
+
+    query = du.queryDatabase(queryString, connectionName, driver, host, port, user, passwd, databaseName, databaseType);
+
+    return query;
+
+}
 
 
 

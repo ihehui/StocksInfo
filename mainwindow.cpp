@@ -9,21 +9,24 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     ui->stackedWidgetExtraInfo->hide();
 
+    connect(ui->tableViewStocks, SIGNAL(stockActivated(Stock*)), this, SLOT(stockActivated(Stock*)));
+    connect(ui->tableViewStocks, SIGNAL(stockSelected(Stock*)), this, SLOT(stockSelected(Stock*)));
+
 //    QFont ft = QApplication::font();
 //    ft.setBold(true);
 //    ft.setPointSize(ft.pointSize()*1.5);
 //    QFontMetrics fm(ft);
 
-    int rowHeight = 20;
-    QHeaderView *verticalHeader = ui->tableViewStocks->verticalHeader();
-    verticalHeader->setDefaultSectionSize(rowHeight);
-    //verticalHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+//    int rowHeight = 20;
+//    QHeaderView *verticalHeader = ui->tableViewStocks->verticalHeader();
+//    verticalHeader->setDefaultSectionSize(rowHeight);
+//    //verticalHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
 
-    m_tableModel = new StocksTableModel(this);
-    m_sortFilterProxyModel = new SortFilterProxyModel(this);
-    m_sortFilterProxyModel->setSourceModel(m_tableModel);
-    m_sortFilterProxyModel->setDynamicSortFilter(true);
-    ui->tableViewStocks->setModel(m_sortFilterProxyModel);
+//    m_tableModel = new StocksTableModel(this);
+//    m_sortFilterProxyModel = new SortFilterProxyModel(this);
+//    m_sortFilterProxyModel->setSourceModel(m_tableModel);
+//    m_sortFilterProxyModel->setDynamicSortFilter(true);
+//    ui->tableViewStocks->setModel(m_sortFilterProxyModel);
     //m_tableModel->setStocks(m_dataManager->allStocks()->values());
 
 
@@ -31,13 +34,14 @@ MainWindow::MainWindow(QWidget *parent) :
 //    connect(m_dataManager, SIGNAL(historicalDataRead(QString)), ui->tabCandlestick, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(historicalDataRead(Stock*)), ui->tabCandlestick, SLOT(historicalDataRead(Stock*)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(realTimeAskDataUpdated(const RealTimeQuoteData &)), this, SLOT(updateRealTimeAskData(const RealTimeQuoteData &)), Qt::QueuedConnection);
-    connect(m_dataManager, SIGNAL(stocksCountChanged()), this, SLOT(stocksCountChanged()), Qt::QueuedConnection);
+    connect(m_dataManager, SIGNAL(allStocksLoaded()), this, SLOT(allStocksLoaded()));
     connect(ui->tabCandlestick, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 
-    m_tableModel->setStocks(m_dataManager->allStocks()->values());
+//    m_tableModel->setStocks(m_dataManager->allStocks()->values());
 
-
+    ui->tableViewStocks->setDataManager(m_dataManager);
     ui->tabCandlestick->setDataManager(m_dataManager);
+    m_dataManager->loadAllStocks();
     //m_dataManager->moveToThread(&m_dataManagerThread);
     //m_dataManagerThread.start();
     //m_dataManager->start();
@@ -87,8 +91,8 @@ MainWindow::~MainWindow()
     delete m_dataManager;
     //delete m_downloadManager;
 
-    delete m_sortFilterProxyModel;
-    delete m_tableModel;
+    //delete m_sortFilterProxyModel;
+//    delete m_tableModel;
 
 //    m_dataManagerThread.quit();
 //    m_dataManagerThread.wait();
@@ -153,17 +157,27 @@ void MainWindow::updateRealTimeAskData(const RealTimeQuoteData &data){
 
 }
 
+void MainWindow::stockActivated(Stock *stock){
+    qDebug()<<"stockActivated:"<<stock->name();
+}
+
+void MainWindow::stockSelected(Stock *stock){
+    qDebug()<<"stockSelected:"<<stock->name();
+
+}
+
+void MainWindow::allStocksLoaded(){
+    qDebug()<<"--MainWindow::allStocksLoaded()";
+    ui->tableViewStocks->showCategory(0);
+}
+
 void MainWindow::timeout(){
     m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
 }
 
-void MainWindow::stocksCountChanged(){
-    m_tableModel->setStocks(m_dataManager->allStocks()->values());
-}
-
 void MainWindow::test(){
 
-    m_dataManager->downloadRealTimeStatisticsData(0, 1, true);
+//    m_dataManager->downloadRealTimeStatisticsData(0, 1, true);
 
 
 }

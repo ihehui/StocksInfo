@@ -3,6 +3,27 @@
 #include "qcustomplot.h"
 
 
+Category::Category():
+    id(0),
+    name(""),
+    systemCode(""),
+    stocks(QStringList())
+{
+}
+
+Category::Category(quint32 id, const QString &name, const QString &systemCode, const QStringList &stocks):
+    id(id),
+    name(name),
+    systemCode(systemCode),
+    stocks(stocks)
+{
+}
+
+Category::~Category(){
+    stocks.clear();
+}
+
+
 TradeExtraData::TradeExtraData() :
     time(0),
     preClose(0),
