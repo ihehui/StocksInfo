@@ -14,23 +14,24 @@
 
 DownloadManager::DownloadManager(QObject *parent)
     : QObject(parent),
-      downloadedCount(0),
-      totalCount(0),
-      overwriteoldFile(true)
+    m_overwriteoldFile(true)
 {
 
-    localSaveDir = QApplication::applicationDirPath() + "/data";
-    curFileName = "";
-
-    manager = new QNetworkAccessManager();
-
+    m_localSaveDir = QApplication::applicationDirPath() + "/temp";
+    m_networkAccessManager = new QNetworkAccessManager();
 
 }
 
 DownloadManager::~DownloadManager(){
     //qDebug()<<"DownloadManager::~DownloadManager()";
 
-    delete manager;
+    delete m_networkAccessManager;
+
+    foreach (QFile *file, m_fileDownloadHash.values()) {
+        file->close();
+        delete file;
+    }
+    m_fileDownloadHash.clear();
 }
 
 
@@ -46,12 +47,21 @@ void DownloadManager::requestFileDownload(const QStringList &urlList)
 
 void DownloadManager::requestFileDownload(const QUrl &url)
 {
+    if(m_fileDownloadHash.contains(url)){
+        qWarning()<<QString("URL '%1' is already been downloading!").arg(url.toString());
+        return;
+    }
 
-    if (fileDownloadQueue.isEmpty())
-        QTimer::singleShot(0, this, SLOT(startNextDownload()));
+    QNetworkRequest request(url);
+    QNetworkReply *reply = m_networkAccessManager->get(request);
+    //connect(currentFileDownload, SIGNAL(downloadProgress(qint64,qint64)), SLOT(downloadProgress(qint64,qint64)));
+    connect(reply, SIGNAL(readyRead()), SLOT(fileDownloadReadyRead()));
+    connect(reply, SIGNAL(finished()), SLOT(fileDownloadFinished()));
+    connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), SLOT(error(QNetworkReply::NetworkError)));
 
-    fileDownloadQueue.enqueue(url);
-    ++totalCount;
+    QFile *file = new QFile();
+    m_fileDownloadHash.insert(url, file);
+
 }
 
 void DownloadManager::requestFileDownload(const QString &url){
@@ -60,8 +70,9 @@ void DownloadManager::requestFileDownload(const QString &url){
 
 void DownloadManager::requestRealTimeQuoteData(const QString &url){
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    QNetworkReply *reply = manager->get(request);
+    QNetworkReply *reply = m_networkAccessManager->get(request);
     connect(reply, SIGNAL(finished()), SLOT(realTimeQuoteDataDownloadFinished()));
+    connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), SLOT(error(QNetworkReply::NetworkError)));
 
 }
 
@@ -69,79 +80,19 @@ void DownloadManager::requestRealTimeStatisticsData(const QString &url){
     //qDebug()<<"DownloadManager::requestRealTimeStatisticsData()";
 
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
-    QNetworkReply *reply = manager->get(request);
+    QNetworkReply *reply = m_networkAccessManager->get(request);
     connect(reply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+    connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), SLOT(error(QNetworkReply::NetworkError)));
 
 }
 
 
-QString DownloadManager::saveFileName(const QUrl &url)
-{
-
-    QString path = url.path();
-    QString basename = QFileInfo(path).fileName();
-    QString localPath = localSaveDir + "/" + basename;
-
-    if (basename.isEmpty())
-        basename = "download";
-
-    if (QFile::exists(localPath)) {
-        if(overwriteoldFile && QFile::remove(localPath)){
-            return localPath;
-        }else{
-            qCritical()<<QString("Failed to remove file '%1'").arg(basename);
-        }
-        // already exists, don't overwrite
-        int i = 0;
-        basename += '.';
-        while (QFile::exists(basename + QString::number(i)))
-            ++i;
-
-        basename += QString::number(i);
-    }
-
-    return localSaveDir + "/" + basename;
-}
 
 void DownloadManager::setLocalSaveDir(const QString &path){
 
-    localSaveDir = path;
+    m_localSaveDir = path;
     QDir dir;
-    dir.mkpath(localSaveDir);
-}
-
-void DownloadManager::startNextDownload()
-{
-    //qDebug()<<"DownloadManager:"<<QThread::currentThreadId();
-
-    curFileName = "";
-    if (fileDownloadQueue.isEmpty()) {
-        printf("%d/%d files downloaded successfully\n", downloadedCount, totalCount);
-        emit finished();
-        return;
-    }
-
-    QUrl url = fileDownloadQueue.dequeue();
-//    QString filename = saveFileName(url);
-//    output.setFileName(filename);
-//    if (!output.open(QIODevice::WriteOnly)) {
-//        fprintf(stderr, "Problem opening save file '%s' for download '%s': %s\n",
-//                qPrintable(filename), url.toEncoded().constData(),
-//                qPrintable(output.errorString()));
-
-//        startNextDownload();
-//        return;                 // skip this download
-//    }
-
-    QNetworkRequest request(url);
-    currentFileDownload = manager->get(request);
-    //connect(currentFileDownload, SIGNAL(downloadProgress(qint64,qint64)), SLOT(downloadProgress(qint64,qint64)));
-    connect(currentFileDownload, SIGNAL(readyRead()), SLOT(downloadReadyRead()));
-    connect(currentFileDownload, SIGNAL(finished()), SLOT(downloadFinished()));
-
-    // prepare the output
-    printf("Downloading %s...\n", url.toEncoded().constData());
-    downloadTime.start();
+    dir.mkpath(m_localSaveDir);
 }
 
 void DownloadManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
@@ -149,64 +100,71 @@ void DownloadManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
     qDebug()<<"DownloadManager::downloadProgress:"<<QThread::currentThreadId();
 
     // calculate the download speed
-    double speed = bytesReceived * 1000.0 / downloadTime.elapsed();
-    QString unit;
-    if (speed < 1024) {
-        unit = "bytes/sec";
-    } else if (speed < 1024*1024) {
-        speed /= 1024;
-        unit = "kB/s";
-    } else {
-        speed /= 1024*1024;
-        unit = "MB/s";
-    }
+    //double speed = bytesReceived * 1000.0 / downloadTime.elapsed();
+//    QString unit;
+//    if (speed < 1024) {
+//        unit = "bytes/sec";
+//    } else if (speed < 1024*1024) {
+//        speed /= 1024;
+//        unit = "kB/s";
+//    } else {
+//        speed /= 1024*1024;
+//        unit = "MB/s";
+//    }
 
    // qDebug()<<QString::fromLatin1("%1% %2").arg(speed, 3, 'f', 1).arg(unit);
 }
 
-void DownloadManager::downloadFinished()
+void DownloadManager::fileDownloadFinished()
 {
-    output.close();
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if(!reply){return;}
 
-    if (currentFileDownload->error()) {
-        // download failed
-        fprintf(stderr, "Failed: %s\n", qPrintable(currentFileDownload->errorString()));
+    QUrl url = reply->url();
+    QFile *file = m_fileDownloadHash.value(url);
+    file->close();
+
+
+    if (reply->error()) {
+        qCritical()<<QString("Failed to download file '%1'! %2").arg(url.toString()).arg(reply->errorString());
     } else {
-        printf("Succeeded.\n");
-        ++downloadedCount;
-
-        emit dataDownloaded(curFileName, currentFileDownload->url());
+        emit fileDownloaded(file->fileName(), url);
     }
 
-    currentFileDownload->deleteLater();
-    startNextDownload();
+    m_fileDownloadHash.remove(url);
+    file->deleteLater();
+    reply->deleteLater();
 
 }
 
-void DownloadManager::downloadReadyRead()
+void DownloadManager::fileDownloadReadyRead()
 {
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if(!reply){return;}
 
-    if(curFileName.trimmed().isEmpty()){
-        QString header = QString(currentFileDownload->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
-        QString filename = localSaveDir + "/" + header;
-        if(filename.isEmpty()){
-            filename = saveFileName(currentFileDownload->url());
+    QUrl url = reply->url();
+    QFile *file = m_fileDownloadHash.value(url);
+    if(file->fileName().isEmpty()){
+        QString header = QString(reply->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
+        QString filename = m_localSaveDir + "/" + header;
+        if(header.isEmpty()){
+            filename = saveFileName(url);
         }
 
-        output.setFileName(filename);
-        if (!output.open(QIODevice::WriteOnly)) {
+        file->setFileName(filename);
+        if (!file->open(QIODevice::WriteOnly)) {
             fprintf(stderr, "Problem opening save file '%s' for download '%s': %s\n",
-                    qPrintable(filename), currentFileDownload->url().toEncoded().constData(),
-                    qPrintable(output.errorString()));
+                    qPrintable(filename), url.toEncoded().constData(),
+                    qPrintable(file->errorString()));
 
-            currentFileDownload->deleteLater();
-            startNextDownload();
+            reply->deleteLater();
+            file->deleteLater();
+            m_fileDownloadHash.remove(url);
             return;
         }
-        curFileName = filename;
     }
 
-    output.write(currentFileDownload->readAll());
+    file->write(reply->readAll());
 }
 
 void DownloadManager::realTimeQuoteDataDownloadFinished(){
@@ -234,5 +192,38 @@ void DownloadManager::realTimeStatisticsDataDownloadFinished(){
 
 void DownloadManager::error(QNetworkReply::NetworkError code){
     qDebug()<<"NetworkError:"<<code;
+
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if(!reply){return;}
+    emit networkError(reply->url(), reply->errorString());
 }
+
+QString DownloadManager::saveFileName(const QUrl &url)
+{
+
+    QString path = url.path();
+    QString basename = QFileInfo(path).fileName();
+    QString localPath = m_localSaveDir + "/" + basename;
+
+    if (basename.isEmpty())
+        basename = "download";
+
+    if (QFile::exists(localPath)) {
+        if(m_overwriteoldFile && QFile::remove(localPath)){
+            return localPath;
+        }else{
+            qCritical()<<QString("Failed to remove file '%1'").arg(basename);
+        }
+        // already exists, don't overwrite
+        int i = 0;
+        basename += '.';
+        while (QFile::exists(basename + QString::number(i)))
+            ++i;
+
+        basename += QString::number(i);
+    }
+
+    return m_localSaveDir + "/" + basename;
+}
+
 

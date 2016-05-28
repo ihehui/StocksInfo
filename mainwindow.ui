@@ -38,6 +38,9 @@
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QToolButton" name="toolButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -45,6 +48,9 @@
           </item>
           <item>
            <widget class="QToolButton" name="toolButton_2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -65,6 +71,9 @@
           </item>
           <item>
            <widget class="QToolButton" name="toolButton_6">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -95,6 +104,9 @@
          <layout class="QHBoxLayout" name="horizontalLayout">
           <item>
            <widget class="QToolButton" name="toolButton_3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -102,6 +114,9 @@
           </item>
           <item>
            <widget class="QToolButton" name="toolButton_4">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -122,6 +137,9 @@
           </item>
           <item>
            <widget class="QToolButton" name="toolButton_5">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>...</string>
             </property>
@@ -153,6 +171,9 @@
               </property>
               <item>
                <widget class="QToolButton" name="toolButtonRealTime">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Real Time</string>
                 </property>
@@ -163,6 +184,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton5Mins">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>5MINS</string>
                 </property>
@@ -173,6 +197,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton15Mins">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>15MINS</string>
                 </property>
@@ -183,6 +210,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton30Mins">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>30MINS</string>
                 </property>
@@ -193,6 +223,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton60Mins">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>60MINS</string>
                 </property>
@@ -203,6 +236,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton1Day">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>1Day</string>
                 </property>
@@ -213,6 +249,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton1Week">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>1Week</string>
                 </property>
@@ -236,6 +275,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="toolButton_9">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>...</string>
                 </property>
@@ -723,24 +765,24 @@
     <property name="title">
      <string>&amp;System</string>
     </property>
-    <addaction name="action_Quit"/>
+    <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menu_About">
     <property name="title">
      <string>&amp;Help</string>
     </property>
-    <addaction name="action_about"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menu_System"/>
    <addaction name="menu_About"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="action_Quit">
+  <action name="actionQuit">
    <property name="text">
     <string>&amp;Quit</string>
    </property>
   </action>
-  <action name="action_about">
+  <action name="actionAbout">
    <property name="text">
     <string>&amp;About</string>
    </property>

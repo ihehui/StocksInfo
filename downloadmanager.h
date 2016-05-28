@@ -29,44 +29,35 @@ public slots:
     void requestRealTimeStatisticsData(const QString &url);
 
 
-    QString saveFileName(const QUrl &url);
     void setLocalSaveDir(const QString &path);
 
 signals:
-    void finished();
-    void dataDownloaded(const QString &fileName, const QUrl &url);
+    void networkError(const QUrl &url, const QString &errorString);
+    void fileDownloaded(const QString &fileName, const QUrl &url);
     void realTimeQuoteDataReceived(const QByteArray &data);
     void realTimeStatisticsDataReceived(const QByteArray &data);
 
 private slots:
-    void startNextDownload();
     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
-    void downloadFinished();
-    void downloadReadyRead();
+    void fileDownloadFinished();
+    void fileDownloadReadyRead();
 
     void realTimeQuoteDataDownloadFinished();
     void realTimeStatisticsDataDownloadFinished();
 
     void error(QNetworkReply::NetworkError code);
 
-public slots:
+private:
+    QString saveFileName(const QUrl &url);
+
 
 
 private:
+    QNetworkAccessManager *m_networkAccessManager;
+    QHash<QUrl, QFile*> m_fileDownloadHash; //URL, File
 
-    QNetworkAccessManager *manager;
-    QQueue<QUrl> fileDownloadQueue, realTimeQuoteQueue, realTimeStatisticsQueue;
-    QNetworkReply *currentFileDownload;
-    QFile output;
-    QTime downloadTime;
-
-    int downloadedCount;
-    int totalCount;
-
-    bool overwriteoldFile;
-    QString localSaveDir;
-    QString curFileName;
-
+    bool m_overwriteoldFile;
+    QString m_localSaveDir;
 
 };
 

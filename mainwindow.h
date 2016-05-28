@@ -34,15 +34,16 @@ protected:
     void resetRealTimeQuoteData(const QString &code);
 
 private slots:
+    void networkError(const QUrl &url, const QString &errorString);
     void stockActivated(Stock *stock);
     void stockSelected(Stock *stock);
     void allStocksLoaded();
 
     void switchPage();
-
     void timeout();
 
-    void test();
+    void on_actionQuit_triggered();
+    void on_actionAbout_triggered();
 
 
 

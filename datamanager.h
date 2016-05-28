@@ -27,14 +27,14 @@ public:
     QList<Stock*> categoryStocks(quint32 categoryID) const;
 
 signals:
+    void networkError(const QUrl &url, const QString &errorString);
+
     void allStocksLoaded();
 
     void historicalDataRead(Stock * stock);
-//    void realTimeAskDataUpdated(Stock * stock);
     void realTimeQuoteDataUpdated(const RealTimeQuoteData &data);
     void realTimeStatisticsDataUpdated();
 
-//    void historicalDataRead(const QString &stockCode);
     void requestDownloadData(const QString &url);
     void requestRealTimeQuoteData(const QString &url);
     void requestRealTimeStatisticsData(const QString &url);

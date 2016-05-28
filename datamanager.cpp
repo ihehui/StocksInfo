@@ -29,9 +29,10 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     m_remoteDBName = "stocks";
 
     m_downloadManager = new DownloadManager();
-    connect(m_downloadManager, SIGNAL(dataDownloaded(const QString &, const QUrl &)), this, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
+    connect(m_downloadManager, SIGNAL(fileDownloaded(const QString &, const QUrl &)), this, SLOT(historicalDataDownloaded(const QString &, const QUrl &)));
     connect(m_downloadManager, SIGNAL(realTimeQuoteDataReceived(const QByteArray &)), this, SLOT(realTimeQuoteDataReceived(const QByteArray &)));
     connect(m_downloadManager, SIGNAL(realTimeStatisticsDataReceived(const QByteArray &)), this, SLOT(realTimeStatisticsDataReceived(const QByteArray &)));
+    connect(m_downloadManager, SIGNAL(networkError(QUrl,QString)), this, SIGNAL(networkError(QUrl,QString)));
 
     connect(this, SIGNAL(requestDownloadData(const QString &)), m_downloadManager, SLOT(requestFileDownload(const QString &)));
     connect(this, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));

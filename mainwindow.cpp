@@ -17,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     m_dataManager = new DataManager();
+    connect(m_dataManager, SIGNAL(networkError(QUrl,QString)), this, SLOT(networkError(QUrl,QString)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(historicalDataRead(Stock*)), ui->tabCandlestick, SLOT(historicalDataRead(Stock*)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(realTimeQuoteDataUpdated(const RealTimeQuoteData &)), this, SLOT(updateRealTimeQuoteData(const RealTimeQuoteData &)), Qt::QueuedConnection);
     connect(m_dataManager, SIGNAL(allStocksLoaded()), this, SLOT(allStocksLoaded()));
@@ -38,15 +39,15 @@ MainWindow::MainWindow(QWidget *parent) :
     //qDebug()<<ui->tableViewStocks->frameGeometry().height();
     //m_tableModel->setRowCount(ui->tableViewStocks->height()/rowHeight);
 
-    QTimer::singleShot(1000, this, SLOT(test()));
+    ui->tableViewStocks->setFocus();
 
 }
 
 MainWindow::~MainWindow()
 {
-    delete ui;
-
     m_timer.stop();
+
+    delete ui;
 
     delete m_dataManager;
 
@@ -136,6 +137,10 @@ void MainWindow::resetRealTimeQuoteData(const QString &code){
 
 }
 
+void MainWindow::networkError(const QUrl &url, const QString &errorString){
+
+}
+
 void MainWindow::stockActivated(Stock *stock){
     qDebug()<<"stockActivated:"<<stock->name();
     ui->tabCandlestick->showCandlesticks(stock->code());
@@ -159,18 +164,48 @@ void MainWindow::switchPage(){
         ui->stackedWidget->setCurrentWidget(ui->pageStocksList);
     }else{
         ui->stackedWidget->setCurrentWidget(ui->pageTradeInfo);
+        QDateTime dateTime = QDateTime::currentDateTime();
+        QDate date = dateTime.date();
+        QTime time = dateTime.time();
+        if(date.dayOfWeek() <= 5
+                && ( (time > QTime(9, 30, 0) && time <= QTime(11, 30, 0)) || (time >= QTime(13, 0, 0) && time <= QTime(15, 0, 0)) )
+                ){
+            m_timer.start();
+        }
+
+        Stock *stock = ui->tabCandlestick->currentStock();
+        if(stock){
+            m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
+        }
     }
 }
 
 void MainWindow::timeout(){
-    m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
+    if(ui->stackedWidget->currentWidget() == ui->pageTradeInfo){
+        Stock *stock = ui->tabCandlestick->currentStock();
+        if(stock){
+            m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
+        }
+
+        QDateTime dateTime = QDateTime::currentDateTime();
+        QDate date = dateTime.date();
+        QTime time = dateTime.time();
+        if(date.dayOfWeek() > 5 || time < QTime(9, 30, 0) || time > QTime(15, 0, 0)){
+            m_timer.stop();
+        }
+    }else{
+        m_timer.stop();
+    }
+
 }
 
-void MainWindow::test(){
-
-    //    m_dataManager->downloadRealTimeStatisticsData(0, 1, true);
-
-
+void MainWindow::on_actionQuit_triggered(){
+    qApp->quit();
 }
+
+void MainWindow::on_actionAbout_triggered(){
+    QMessageBox::information(this, tr("About"), tr("<p align=center>Chinese stocks info view</p> Using customized QCustomPlot to draw candlesticks.<p align=right>Made by \350\264\272\350\276\211</p>"));
+}
+
 
 
