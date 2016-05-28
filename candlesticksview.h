@@ -21,6 +21,7 @@ public:
 
 signals:
     void historicalDataRequested(QString *code, int offset);
+    void stockChanged(const QString &code);
     void escape();
 
 

@@ -96,11 +96,10 @@ QList<Stock*> DataManager::categoryStocks(quint32 categoryID) const{
 }
 
 bool DataManager::readHistoricalData(QString *code, int offset){
-    qDebug()<<"DataManager-readHistoricalData:"<<QThread::currentThreadId();
+    //qDebug()<<"DataManager-readHistoricalData:"<<QThread::currentThreadId();
 
     if(!code){return false;}
     QString newCode = *code;
-    qDebug()<<"-------newCode:"<<newCode;
 
     int size = m_allStocks->size();
     if(!size){return false;}
@@ -259,64 +258,80 @@ void DataManager::historicalDataDownloaded(const QString &fileName, const QUrl &
 }
 
 void DataManager::downloadRealTimeQuoteData(const QString &code){
-    //API:http://api.money.126.net/data/feed/1000001,money.api
-    QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api").arg(code.startsWith("6")?"0":"1").arg(code);
+    //API:http://api.money.126.net/data/feed/1000001,money.api?callback=quote
+    QString url = QString("http://api.money.126.net/data/feed/%1%2,money.api?callback=quote").arg(code.startsWith("6")?"0":"1").arg(code);
     emit requestRealTimeQuoteData(url);
 }
 
 void DataManager::realTimeQuoteDataReceived(const QByteArray &data){
     //API:http://api.money.126.net/data/feed/1000001,money.api
-    if(data.isEmpty()){return;}
-
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-    if(error.error != QJsonParseError::NoError){
-        qCritical()<<error.errorString();
+    if(data.isEmpty()){
+        qWarning()<<"Empty JSON DATA!";
         return;
     }
-    QJsonObject object = doc.object();
-    if(object.isEmpty()){return;}
+    QString str = QString(data);
+    str.remove("quote(", Qt::CaseInsensitive);
+    str.remove(");", Qt::CaseInsensitive);
 
-    QString code = object["symbol"].toString();
-    Stock *stock = m_allStocks->value(code);
-    if(!stock){return;}
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(str.toUtf8(), &error);
+    if(error.error != QJsonParseError::NoError){
+        qCritical()<<"JSON Error!"<<error.errorString();
+        return;
+    }
 
-    RealTimeQuoteData rtData;
-    rtData.code = code;
-    rtData.time = object["time"].toString();
-    rtData.ask1 = object["ask1"].toDouble();
-    rtData.ask2 = object["ask2"].toDouble();
-    rtData.ask3 = object["ask3"].toDouble();
-    rtData.ask4 = object["ask4"].toDouble();
-    rtData.ask5 = object["ask5"].toDouble();
-    rtData.askVol1 = object["askvol1"].toDouble();
-    rtData.askVol2 = object["askvol2"].toDouble();
-    rtData.askVol3 = object["askvol3"].toDouble();
-    rtData.askVol4 = object["askvol4"].toDouble();
-    rtData.askVol5 = object["askvol5"].toDouble();
-    rtData.bid1 = object["bid1"].toDouble();
-    rtData.bid2 = object["bid2"].toDouble();
-    rtData.bid3 = object["bid3"].toDouble();
-    rtData.bid4 = object["bid4"].toDouble();
-    rtData.bid5 = object["bid5"].toDouble();
-    rtData.bidVol1 = object["bidvol1"].toDouble();
-    rtData.bidVol2 = object["bidvol2"].toDouble();
-    rtData.bidVol3 = object["bidvol3"].toDouble();
-    rtData.bidVol4 = object["bidvol4"].toDouble();
-    rtData.bidVol5 = object["bidvol5"].toDouble();
+    QJsonObject rootObject = doc.object();
+    if(rootObject.isEmpty()){return;}
 
-    RealTimeStatisticsData * statisticsData = stock->realTimeStatisticsData();
-    statisticsData->open = object["open"].toDouble();
-    statisticsData->high = object["high"].toDouble();
-    statisticsData->low = object["low"].toDouble();
-    statisticsData->price = object["price"].toDouble();
-    statisticsData->change = object["updown"].toDouble();
-    statisticsData->changePercent = object["percent"].toDouble();
-    statisticsData->yestClose = object["yestclose"].toDouble();
-    statisticsData->volume = object["volume"].toDouble();
-    statisticsData->turnover = object["turnover"].toDouble();
+    foreach (QString key, rootObject.keys()) {
+        QJsonObject obj = rootObject.value(key).toObject();
+        if(obj.isEmpty()){continue;}
 
-    emit realTimeAskDataUpdated(rtData);
+        QString code = obj["symbol"].toString();
+        Stock *stock = m_allStocks->value(code);
+        if(!stock){
+            qWarning()<<QString("Stock '%1' not found!").arg(code);
+            return;
+        }
+
+        RealTimeQuoteData rtData;
+        rtData.code = code;
+        rtData.time = obj["time"].toString();
+        rtData.ask1 = obj["ask1"].toDouble();
+        rtData.ask2 = obj["ask2"].toDouble();
+        rtData.ask3 = obj["ask3"].toDouble();
+        rtData.ask4 = obj["ask4"].toDouble();
+        rtData.ask5 = obj["ask5"].toDouble();
+        rtData.askVol1 = obj["askvol1"].toDouble();
+        rtData.askVol2 = obj["askvol2"].toDouble();
+        rtData.askVol3 = obj["askvol3"].toDouble();
+        rtData.askVol4 = obj["askvol4"].toDouble();
+        rtData.askVol5 = obj["askvol5"].toDouble();
+        rtData.bid1 = obj["bid1"].toDouble();
+        rtData.bid2 = obj["bid2"].toDouble();
+        rtData.bid3 = obj["bid3"].toDouble();
+        rtData.bid4 = obj["bid4"].toDouble();
+        rtData.bid5 = obj["bid5"].toDouble();
+        rtData.bidVol1 = obj["bidvol1"].toDouble();
+        rtData.bidVol2 = obj["bidvol2"].toDouble();
+        rtData.bidVol3 = obj["bidvol3"].toDouble();
+        rtData.bidVol4 = obj["bidvol4"].toDouble();
+        rtData.bidVol5 = obj["bidvol5"].toDouble();
+
+        RealTimeStatisticsData * statisticsData = stock->realTimeStatisticsData();
+        statisticsData->open = obj["open"].toDouble();
+        statisticsData->high = obj["high"].toDouble();
+        statisticsData->low = obj["low"].toDouble();
+        statisticsData->price = obj["price"].toDouble();
+        statisticsData->change = obj["updown"].toDouble();
+        statisticsData->changePercent = obj["percent"].toDouble();
+        statisticsData->yestClose = obj["yestclose"].toDouble();
+        statisticsData->volume = obj["volume"].toDouble();
+        statisticsData->turnover = obj["turnover"].toDouble();
+
+        emit realTimeQuoteDataUpdated(rtData);
+
+    }
 
 }
 
@@ -332,26 +347,27 @@ void DataManager::downloadRealTimeStatisticsData(int pageIndex, int count, bool 
 }
 
 void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
+    //qDebug()<<"--DataManager::realTimeStatisticsDataReceived()";
     if(data.isEmpty()){return;}
 
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
     if(error.error != QJsonParseError::NoError){
-        qCritical()<<error.errorString();
+        qCritical()<<"Invalid JSON!"<<error.errorString();
         return;
     }
 
-    QJsonObject object = doc.object();
-    if(object.isEmpty()){return;}
+    QJsonObject rootObject = doc.object();
+    if(rootObject.isEmpty()){return;}
 
     if(m_hsaTotalStocksCount < 1){
-        m_hsaTotalStocksCount = object["total"].toInt();
+        m_hsaTotalStocksCount = rootObject["total"].toInt();
     }
     bool initMode = m_allStocks->isEmpty();
     QList<Stock*> stocksToBeSaved;
 
-    QString time = object["time"].toString();
-    QJsonArray array = object["list"].toArray();
+    QString time = rootObject["time"].toString();
+    QJsonArray array = rootObject["list"].toArray();
     for(int i=0;i<array.size();i++){
         qApp->processEvents();
 
@@ -388,6 +404,8 @@ void DataManager::realTimeStatisticsDataReceived(const QByteArray &data){
         statisticsData->fiveMinsChange = infoObj["FIVE_MINUTE"].toDouble();
 
     }
+
+    emit realTimeStatisticsDataUpdated();
 
     if(initMode){
         loadAllCategories();
@@ -440,8 +458,7 @@ bool DataManager::loadAllStocks(){
     }
     QSqlQuery query(localStocksDataDB);
 
-    QString statement = QString("SELECT Code, Name From Stocks; ");
-    qDebug()<<"statement:"<<statement;
+    QString statement = QString("SELECT Code, Name From Stocks; "); 
     if(!query.exec(statement)){
         QSqlError error = query.lastError();
         QString msg = QString("Can not query stocks from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
@@ -465,7 +482,7 @@ bool DataManager::loadAllStocks(){
     }
 
 
-    downloadRealTimeStatisticsData(0, 5000, true);
+    downloadRealTimeStatisticsData(0, 3000, true);
 
     return true;
 
@@ -480,7 +497,6 @@ bool DataManager::saveStockInfoToDB(Stock * stock){
     }
     QSqlQuery query(localStocksDataDB);
     QString statement = QString("INSERT INTO Stocks(Code, Name) VALUES('%1', '%2'); ").arg(stock->code()).arg(stock->name());
-    qDebug()<<"statement:"<<statement;
     if(!query.exec(statement)){
         QSqlError error = query.lastError();
         QString msg = QString("Can not save stock info to database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
@@ -617,7 +633,6 @@ bool DataManager::loadHistoricalTradeData(Stock * stock){
     QSqlQuery query(localStocksDataDB);
 
     QString statement = QString("SELECT TradeDate, Open, High, Low, Close, PreClose, Volume, Turnover, ExchangeRatio From DailyTradeinfo WHERE Code='%1' ORDER BY TradeDate DESC; ").arg(stock->code());
-    qDebug()<<"statement:"<<statement;
     if(!query.exec(statement)){
         QSqlError error = query.lastError();
         QString msg = QString("Can not query trade info from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());

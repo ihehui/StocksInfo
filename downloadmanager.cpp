@@ -28,7 +28,7 @@ DownloadManager::DownloadManager(QObject *parent)
 }
 
 DownloadManager::~DownloadManager(){
-    qDebug()<<"DownloadManager::~DownloadManager()";
+    //qDebug()<<"DownloadManager::~DownloadManager()";
 
     delete manager;
 }
@@ -59,15 +59,14 @@ void DownloadManager::requestFileDownload(const QString &url){
 }
 
 void DownloadManager::requestRealTimeQuoteData(const QString &url){
-
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
     QNetworkReply *reply = manager->get(request);
-    connect(reply, SIGNAL(finished()), SLOT(realTimeStatisticsDataDownloadFinished()));
+    connect(reply, SIGNAL(finished()), SLOT(realTimeQuoteDataDownloadFinished()));
 
 }
 
 void DownloadManager::requestRealTimeStatisticsData(const QString &url){
-    qDebug()<<"DownloadManager::requestRealTimeStatisticsData()";
+    //qDebug()<<"DownloadManager::requestRealTimeStatisticsData()";
 
     QNetworkRequest request(QUrl::fromEncoded(url.toLocal8Bit()));
     QNetworkReply *reply = manager->get(request);
@@ -113,7 +112,7 @@ void DownloadManager::setLocalSaveDir(const QString &path){
 
 void DownloadManager::startNextDownload()
 {
-    qDebug()<<"DownloadManager:"<<QThread::currentThreadId();
+    //qDebug()<<"DownloadManager:"<<QThread::currentThreadId();
 
     curFileName = "";
     if (fileDownloadQueue.isEmpty()) {
@@ -211,7 +210,7 @@ void DownloadManager::downloadReadyRead()
 }
 
 void DownloadManager::realTimeQuoteDataDownloadFinished(){
-    qDebug()<<"DownloadManager::realTimeQuoteDataDownloadFinished()";
+    //qDebug()<<"DownloadManager::realTimeQuoteDataDownloadFinished()";
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(!reply){return;}
 
@@ -223,7 +222,7 @@ void DownloadManager::realTimeQuoteDataDownloadFinished(){
 }
 
 void DownloadManager::realTimeStatisticsDataDownloadFinished(){
-    qDebug()<<"DownloadManager::realTimeStatisticsDataDownloadFinished() "<<QThread::currentThreadId();
+    //qDebug()<<"DownloadManager::realTimeStatisticsDataDownloadFinished() "<<QThread::currentThreadId();
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(!reply){return;}
 

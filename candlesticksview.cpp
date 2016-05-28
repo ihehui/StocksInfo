@@ -270,7 +270,6 @@ void CandlesticksView::contextMenuRequest(QPoint pos)
 }
 
 void CandlesticksView::setAxisRange2(const QCPRange &newRange, const QCPRange &oldRange){
-    qDebug()<<"----setAxisRange()------";
 
     QCPRange valueRange(0,0), leftBoxRange(0,0), rightBoxRange(0,0);
     m_candlesticks->getBoundValuesInVisibleRange(valueRange, leftBoxRange, rightBoxRange);
@@ -326,7 +325,7 @@ void CandlesticksView::setAxisRange2(const QCPRange &newRange, const QCPRange &o
 }
 
 void CandlesticksView::setAxisRange(){
-    qDebug()<<"----setAxisRange()------";
+    //qDebug()<<"----setAxisRange()------";
 
     double minValue = 0, maxValue = 0;
     uint itemCount = 0;
@@ -571,13 +570,14 @@ void CandlesticksView::updateVolumeYAxisRange(){
 }
 
 void CandlesticksView::historicalDataRead(Stock *stock){
-    qDebug()<<"--CandlesticksView::historicalDataRead() "<<stock->name();
+    //qDebug()<<"--CandlesticksView::historicalDataRead() "<<stock->name();
     Q_ASSERT(stock);
     if(!stock || stock->code() != m_stockCodeExpected){return;}
     m_curStock = stock;
     m_stockCode = stock->code();
     m_stockName = stock->name();
     m_plotTitle->setText(m_stockName);
+    emit stockChanged(m_stockCode);
 
     m_ohlcDataMap = stock->ohlcDataMap();
     m_candlesticks->setData(m_ohlcDataMap, true); //TODO:optimize

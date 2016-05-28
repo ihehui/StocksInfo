@@ -31,7 +31,8 @@ signals:
 
     void historicalDataRead(Stock * stock);
 //    void realTimeAskDataUpdated(Stock * stock);
-    void realTimeAskDataUpdated(const RealTimeQuoteData &data);
+    void realTimeQuoteDataUpdated(const RealTimeQuoteData &data);
+    void realTimeStatisticsDataUpdated();
 
 //    void historicalDataRead(const QString &stockCode);
     void requestDownloadData(const QString &url);

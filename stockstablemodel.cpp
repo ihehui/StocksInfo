@@ -257,7 +257,7 @@ Stock * StocksTableModel::getStock(const QModelIndex & index){
 }
 
 void StocksTableModel::setStocks(const QList<Stock *> &stocks){
-    qDebug()<<"StocksTableModel::setStocks(...)";
+    //qDebug()<<"StocksTableModel::setStocks(...)";
     beginResetModel();
 
     m_allStocks = stocks;

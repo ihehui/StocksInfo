@@ -42,6 +42,8 @@ void StocksTableView::setDataManager(DataManager *manager){
     if(!manager){return;}
     m_dataManager = manager;
     //connect(m_dataManager, SIGNAL(allStocksLoaded()), this, SLOT(allStocksLoaded()));
+    connect(m_dataManager, SIGNAL(realTimeStatisticsDataUpdated()), this, SLOT(realTimeStatisticsDataUpdated()));
+
 }
 
 void StocksTableView::showCategory(quint32 categoryID){
@@ -54,9 +56,22 @@ void StocksTableView::showCategory(quint32 categoryID){
     m_curCategoryID = categoryID;
 }
 
-void StocksTableView::allStocksLoaded(){
-    showCategory(0);
+void StocksTableView::realTimeStatisticsDataUpdated(){
+    //qDebug()<<"--StocksTableView::realTimeStatisticsDataUpdated()";
+
+    if(selectedIndexes().isEmpty()){
+        if(m_tableModel->rowCount()){
+            selectRow(0);
+        }
+    }else{
+        doItemsLayout();
+    }
+
 }
+
+//void StocksTableView::allStocksLoaded(){
+//    showCategory(0);
+//}
 
 Stock * StocksTableView::stockAt(const QPoint &pos){
     QModelIndex index = indexAt(pos);

@@ -24,8 +24,9 @@ signals:
 
 public slots:
     void showCategory(quint32 categoryID);
+    void realTimeStatisticsDataUpdated();
 
-    void allStocksLoaded();
+//    void allStocksLoaded();
 
 private slots:
     Stock * stockAt(const QPoint &pos);

@@ -30,7 +30,8 @@ protected:
 
 
  public slots:
-    void updateRealTimeAskData(const RealTimeQuoteData &data);
+    void updateRealTimeQuoteData(const RealTimeQuoteData &data);
+    void resetRealTimeQuoteData(const QString &code);
 
 private slots:
     void stockActivated(Stock *stock);
