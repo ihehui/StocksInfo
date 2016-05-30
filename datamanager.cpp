@@ -38,23 +38,21 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(this, SIGNAL(requestRealTimeQuoteData(const QString &)), m_downloadManager, SLOT(requestRealTimeQuoteData(const QString &)));
     connect(this, SIGNAL(requestRealTimeStatisticsData(const QString &)), m_downloadManager, SLOT(requestRealTimeStatisticsData(const QString &)));
 
-
-
+    m_downloadManager->setLocalSaveDir(QApplication::applicationDirPath() + "/temp");
 
     m_allStocks = new QMap<QString, Stock*>();
     m_hsaTotalStocksCount = 0;
 
-    qDebug()<<"DataManager0:"<<QThread::currentThreadId();
-
-   //QTimer::singleShot(0, this, SLOT(loadAllStocks()));
+    //qDebug()<<"DataManager0:"<<QThread::currentThreadId();
+    //QTimer::singleShot(0, this, SLOT(loadAllStocks()));
 
 }
 
 DataManager::~DataManager(){
     qDebug()<<"DataManager::~DataManager()";
 
-//    delete m_ohlcData; //deleted by QCPFinancial
-//    delete m_tradeExtraData;
+    //    delete m_ohlcData; //deleted by QCPFinancial
+    //    delete m_tradeExtraData;
     delete m_downloadManager;
 
     qDeleteAll(m_allStocks->begin(), m_allStocks->end());
@@ -119,11 +117,11 @@ bool DataManager::readHistoricalData(QString *code, int offset){
             }
         }
 
-//        if(newOffset > 0 && index >= size){
-//            index = newOffset - (size - allStocks.indexOf(newCode));
-//        }else if(index <= 0){
-//            index = size - (newOffset - allStocks.indexOf(newCode)) - 1;
-//        }
+        //        if(newOffset > 0 && index >= size){
+        //            index = newOffset - (size - allStocks.indexOf(newCode));
+        //        }else if(index <= 0){
+        //            index = size - (newOffset - allStocks.indexOf(newCode)) - 1;
+        //        }
         newCode = allStocks.at(index);
         *code = newCode;
     }
@@ -246,14 +244,14 @@ void DataManager::downloadHistoricalData(const QString &code, const QString &sta
     }
     emit requestDownloadData(url);
 
-//    m_downloadManager->append();
+    //    m_downloadManager->append();
 }
 
 void DataManager::historicalDataDownloaded(const QString &fileName, const QUrl &url){
     qDebug()<<"---DataManager::dataDownloaded(...)"<<" fileName:"<<fileName<<" currentThreadId:"<<QThread::currentThreadId();
-//    QFileInfo fi(fileName);
-//    QString code = fi.baseName();
-//    readHistoricalData(&code, 0);
+    //    QFileInfo fi(fileName);
+    //    QString code = fi.baseName();
+    //    readHistoricalData(&code, 0);
     readHistoricalTradeDataFile(fileName);
 
 }
@@ -337,7 +335,7 @@ void DataManager::realTimeQuoteDataReceived(const QByteArray &data){
 }
 
 void DataManager::downloadRealTimeStatisticsData(int pageIndex, int count, bool allFields){
-   QString fields = "SYMBOL,NAME,PRICE,PERCENT,UPDOWN,FIVE_MINUTE,OPEN,YESTCLOSE,HIGH,LOW,VOLUME,TURNOVER,HS,LB,WB,ZF,PE,MCAP,TCAP,MFSUM";
+    QString fields = "SYMBOL,NAME,PRICE,PERCENT,UPDOWN,FIVE_MINUTE,OPEN,YESTCLOSE,HIGH,LOW,VOLUME,TURNOVER,HS,LB,WB,ZF,PE,MCAP,TCAP,MFSUM";
     if(!allFields){
         fields = "SYMBOL,PRICE,PERCENT,UPDOWN,FIVE_MINUTE,HIGH,LOW,VOLUME,TURNOVER,HS,LB,WB,ZF,MFSUM";
     }
@@ -459,7 +457,7 @@ bool DataManager::loadAllStocks(){
     }
     QSqlQuery query(localStocksDataDB);
 
-    QString statement = QString("SELECT Code, Name From Stocks; "); 
+    QString statement = QString("SELECT Code, Name From Stocks; ");
     if(!query.exec(statement)){
         QSqlError error = query.lastError();
         QString msg = QString("Can not query stocks from database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
@@ -802,16 +800,16 @@ bool DataManager::initLocalDatabase(QString *errorMessage){
     }
 
 
-//    QString statement = QString("insert into Stocks(Code) values('%1')").arg("000001");
-//    if(!query.exec(statement)){
-//        QSqlError error = query.lastError();
-//        QString msg = QString("Can not initialize user database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
-//        qCritical()<<msg;
-//        if(errorMessage){
-//            *errorMessage = msg;
-//        }
-//        return false;
-//    }
+    //    QString statement = QString("insert into Stocks(Code) values('%1')").arg("000001");
+    //    if(!query.exec(statement)){
+    //        QSqlError error = query.lastError();
+    //        QString msg = QString("Can not initialize user database! %1 Error Type:%2 Error NO.:%3").arg(error.text()).arg(error.type()).arg(error.number());
+    //        qCritical()<<msg;
+    //        if(errorMessage){
+    //            *errorMessage = msg;
+    //        }
+    //        return false;
+    //    }
 
     return true;
 
@@ -851,8 +849,8 @@ QSqlQuery DataManager::queryDatabase(const QString & queryString, bool localConf
 
 
 QSqlQuery DataManager::queryDatabase(const QString & queryString, const QString &connectionName, const QString &driver,
-                                         const QString &host, int port, const QString &user, const QString &passwd,
-                                         const QString &databaseName, HEHUI::DatabaseType databaseType) {
+                                     const QString &host, int port, const QString &user, const QString &passwd,
+                                     const QString &databaseName, HEHUI::DatabaseType databaseType) {
 
 
     QSqlQuery query;

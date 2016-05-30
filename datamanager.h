@@ -57,6 +57,7 @@ public slots:
     void downloadRealTimeStatisticsData(int pageIndex, int count = 0, bool allFields = false);
     void realTimeStatisticsDataReceived(const QByteArray &data);
 
+    //从数据库载入所有股票信息
     bool loadAllStocks();
 
 private slots:

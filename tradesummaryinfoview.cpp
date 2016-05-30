@@ -31,9 +31,9 @@ void TradeSummaryInfoView::updateTradeInfo(const QCPFinancialData &ohlcData, con
     ui->labelHigh->setText(QString::number(ohlcData.high));
     ui->labelLow->setText(QString::number(ohlcData.low));
     ui->labelClose->setText(QString::number(ohlcData.close));
-    ui->labelVolume->setText(QString::number(extraData.volume/OneHundredMillion));
-    ui->labelTurnover->setText(QString::number(extraData.turnover/OneHundredMillion));
-    ui->labelTurnoverRate->setText(QString::number(extraData.exchangeRatio*100)+"%");
+    ui->labelVolume->setText(QString::number(extraData.volume/OneHundredMillion)+" \344\272\277");
+    ui->labelTurnover->setText(QString::number(extraData.turnover/OneHundredMillion)+" \344\272\277");
+    ui->labelTurnoverRate->setText(QString::number(extraData.exchangeRatio)+"%");
 
 }
 

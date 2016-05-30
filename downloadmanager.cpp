@@ -147,6 +147,8 @@ void DownloadManager::fileDownloadReadyRead()
     if(file->fileName().isEmpty()){
         QString header = QString(reply->rawHeader("Content-Disposition")).remove("attachment; filename=", Qt::CaseInsensitive);
         QString filename = m_localSaveDir + "/" + header;
+        QDir dir;
+        dir.mkpath(m_localSaveDir);
         if(header.isEmpty()){
             filename = saveFileName(url);
         }

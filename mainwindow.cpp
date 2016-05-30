@@ -31,6 +31,14 @@ MainWindow::MainWindow(QWidget *parent) :
     m_timer.setInterval(5000);
     m_timer.setSingleShot(false);
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    QDateTime dateTime = QDateTime::currentDateTime();
+    QDate date = dateTime.date();
+    QTime time = dateTime.time();
+    if(date.dayOfWeek() <= 5
+            && ( (time > QTime(9, 30, 0) && time <= QTime(11, 30, 0)) || (time >= QTime(13, 0, 0) && time <= QTime(15, 0, 0)) )
+            ){
+        m_timer.start();
+    }
 
 
     //qDebug()<<ui->tableViewStocks->height();
@@ -145,6 +153,7 @@ void MainWindow::stockActivated(Stock *stock){
     qDebug()<<"stockActivated:"<<stock->name();
     ui->tabCandlestick->showCandlesticks(stock->code());
     ui->stackedWidget->setCurrentWidget(ui->pageTradeInfo);
+    ui->tabCandlestick->setFocus();
 
     m_dataManager->downloadRealTimeQuoteData(stock->code());
 }
@@ -164,38 +173,29 @@ void MainWindow::switchPage(){
         ui->stackedWidget->setCurrentWidget(ui->pageStocksList);
     }else{
         ui->stackedWidget->setCurrentWidget(ui->pageTradeInfo);
-        QDateTime dateTime = QDateTime::currentDateTime();
-        QDate date = dateTime.date();
-        QTime time = dateTime.time();
-        if(date.dayOfWeek() <= 5
-                && ( (time > QTime(9, 30, 0) && time <= QTime(11, 30, 0)) || (time >= QTime(13, 0, 0) && time <= QTime(15, 0, 0)) )
-                ){
-            m_timer.start();
-        }
-
-        Stock *stock = ui->tabCandlestick->currentStock();
-        if(stock){
-            m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
-        }
+//        Stock *stock = ui->tabCandlestick->currentStock();
+//        if(stock){
+//            m_dataManager->downloadRealTimeQuoteData(stock->code());
+//        }
     }
 }
 
 void MainWindow::timeout(){
+    QDateTime dateTime = QDateTime::currentDateTime();
+    QDate date = dateTime.date();
+    QTime time = dateTime.time();
+    if(date.dayOfWeek() > 5 || time < QTime(9, 30, 0) || time > QTime(15, 0, 0)){
+        m_timer.stop();
+    }
+
     if(ui->stackedWidget->currentWidget() == ui->pageTradeInfo){
         Stock *stock = ui->tabCandlestick->currentStock();
         if(stock){
-            m_dataManager->downloadRealTimeQuoteData(ui->tabCandlestick->currentStock()->code());
+            m_dataManager->downloadRealTimeQuoteData(stock->code());
         }
-
-        QDateTime dateTime = QDateTime::currentDateTime();
-        QDate date = dateTime.date();
-        QTime time = dateTime.time();
-        if(date.dayOfWeek() > 5 || time < QTime(9, 30, 0) || time > QTime(15, 0, 0)){
-            m_timer.stop();
-        }
-    }else{
-        m_timer.stop();
     }
+
+    m_dataManager->downloadRealTimeStatisticsData(0, 3000, true);
 
 }
 

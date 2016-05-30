@@ -35,6 +35,7 @@ protected:
 
 private slots:
     void networkError(const QUrl &url, const QString &errorString);
+
     void stockActivated(Stock *stock);
     void stockSelected(Stock *stock);
     void allStocksLoaded();

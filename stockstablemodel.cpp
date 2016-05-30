@@ -86,7 +86,7 @@ QVariant StocksTableModel::data ( const QModelIndex & index, int role) const {
             break;
         case 7:
         {
-            sprintf(buffer, "%.2f", realTimeStatisticsData->exchangeRatio);
+            sprintf(buffer, "%.2f", realTimeStatisticsData->exchangeRatio*100);
             return QString(buffer);
         }
             break;
@@ -116,7 +116,7 @@ QVariant StocksTableModel::data ( const QModelIndex & index, int role) const {
             break;
         case 12:
         {
-            sprintf(buffer, "%.2f", realTimeStatisticsData->orderChangeRatio);
+            sprintf(buffer, "%.2f", realTimeStatisticsData->orderChangeRatio*100);
             return QString(buffer);
         }
             break;
