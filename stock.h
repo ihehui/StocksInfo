@@ -1,8 +1,8 @@
-#ifndef STOCK_H
+﻿#ifndef STOCK_H
 #define STOCK_H
 
 #include <QObject>
-
+#include <QMutex>
 #include "common.h"
 
 
