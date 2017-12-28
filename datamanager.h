@@ -1,4 +1,4 @@
-#ifndef DATAMANAGER_H
+﻿#ifndef DATAMANAGER_H
 #define DATAMANAGER_H
 
 #include <QThread>
@@ -12,7 +12,6 @@
 class QCPFinancialData;
 class TradeExtraData;
 class DownloadManager;
-
 
 class DataManager : public QObject
 {

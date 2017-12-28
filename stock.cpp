@@ -1,4 +1,4 @@
-#include "stock.h"
+﻿#include "stock.h"
 
 #include "qcustomplot.h"
 
@@ -69,7 +69,7 @@ Stock::Stock(const QString &code, const QString &name, QObject *parent)
 {
     m_realTimeStatisticsData = new RealTimeStatisticsData();
     m_periodType = PERIOD_ONE_DAY;
-    m_ohlcData = new QMap<double, QCPFinancialData>();
+    m_ohlcData.reset(new QCPFinancialDataContainer);
     m_tradeExtraData = new QMap<double, TradeExtraData>();
     m_futuresDeliveryDates = new QVector<double>();
 }
@@ -78,8 +78,7 @@ Stock::~Stock(){
     delete m_realTimeStatisticsData;
     m_realTimeStatisticsData = 0;
 
-    delete m_ohlcData; //May be deleted by QCPFinancial
-    m_ohlcData = 0;
+    m_ohlcData.clear();
 
     delete m_tradeExtraData;
     m_tradeExtraData = 0;
@@ -108,7 +107,7 @@ PeriodType Stock::periodType() const{
     return m_periodType;
 }
 
-QMap<double, QCPFinancialData> * Stock::ohlcDataMap(){
+QSharedPointer<QCPFinancialDataContainer> Stock::ohlcDataContainer(){
     QMutexLocker locker(&mutex);
     return m_ohlcData;
 }
@@ -129,7 +128,7 @@ QVector<double> * Stock::futuresDeliveryDates(){
 void Stock::clear(){
     QMutexLocker locker(&mutex);
 
-    m_ohlcData->clear();
+    m_ohlcData.clear();
     m_tradeExtraData->clear();
 }
 

@@ -1,4 +1,4 @@
-#ifndef TRADESUMMARYINFOVIEW_H
+﻿#ifndef TRADESUMMARYINFOVIEW_H
 #define TRADESUMMARYINFOVIEW_H
 
 #include <QWidget>
@@ -29,7 +29,6 @@ protected:
     void closeEvent(QCloseEvent *event);
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
-
 
 private:
     Ui::TradeSummaryInfoView *ui;
