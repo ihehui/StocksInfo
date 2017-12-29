@@ -17271,10 +17271,6 @@ void QCPAxisRect::setCrossCurveVisible(bool visible){
     mCrossCurveVisible = visible;
 }
 
-void QCPAxisRect::setCrossCurvePoint(const QPointF &point){
-    mCrossCurvePoint = point;
-}
-
 bool QCPAxisRect::pointToCoords(const QPoint &pos, double &key, double &value, QCPAxis::AxisType xAxisType, int xAxisIndex, QCPAxis::AxisType yAxisType, int yAxisIndex){
     if(!mRect.contains(pos)){return false;}
     QCPAxis *xAxis = axis(xAxisType, xAxisIndex);
@@ -26801,157 +26797,6 @@ void QCPFinancial::drawOhlcPlot(QCPPainter *painter, const QCPFinancialDataConta
     }
 }
 
-////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-void QCPFinancial::getBoundValuesInVisibleRange(double &minValue, double &maxValue, uint &itemCount, double *leftKey, double *rightkey) const
-{
-    double minYValue = std::numeric_limits<double>::max();
-    double maxYValue = std::numeric_limits<double>::min();
-
-    // get visible data range:
-    QCPFinancialDataContainer::const_iterator lower, upper; // note that upper is the actual upper point, and not 1 step after the upper point
-    getVisibleDataBounds(lower, upper);
-    if (lower == mDataContainer->constEnd() \
-            || upper == mDataContainer->constEnd()) return ;
-    itemCount = 0;
-
-    QCPFinancialDataContainer::const_iterator it;
-    for (it = lower; it != upper; ++it)
-    {
-        ++itemCount;
-        if(it->open == 0){continue;}
-
-        double currentLow = it->low;
-        double currentHigh = it->high;
-
-        if (currentHigh >= maxYValue){
-            maxYValue = currentHigh;
-        }
-        if(currentLow <= minYValue){
-            minYValue = currentLow;
-        }
-    }
-
-    minValue = minYValue*0.97;
-    maxValue = maxYValue*1.03;
-
-    if(leftKey){
-        //*leftKey = lower.value().key-mWidth*0.5;
-        *leftKey = lower->key;
-    }
-
-    if(rightkey){
-        //*rightkey = upper.value().key+mWidth*0.5;
-        *rightkey = upper->key;
-    }
-}
-
-void QCPFinancial::getBoundValuesInVisibleRange(QCPRange &valueRange, QCPRange &leftBoxRange, QCPRange &rightBoxRange) const
-{
-    double minYValue = std::numeric_limits<double>::max();
-    double maxYValue = std::numeric_limits<double>::min();
-
-    // get visible data range:
-    QCPFinancialDataContainer::const_iterator lower, upper; // note that upper is the actual upper point, and not 1 step after the upper point
-    getVisibleDataBounds(lower, upper);
-    if (lower == mDataContainer->constEnd() \
-            || upper == mDataContainer->constEnd()) return ;
-
-    QCPFinancialDataContainer::const_iterator it;
-    for (it = lower; it != upper; ++it)
-    {
-        if(it->open == 0){continue;}
-
-        double currentLow = it->low;
-        double currentHigh = it->high;
-
-        if (currentHigh >= maxYValue){
-            maxYValue = currentHigh;
-        }
-        if(currentLow <= minYValue){
-            minYValue = currentLow;
-        }
-    }
-
-
-    valueRange.lower = minYValue;
-    valueRange.upper = maxYValue;
-
-    leftBoxRange.lower = lower->key-mWidth*0.5;
-    leftBoxRange.upper = lower->key+mWidth*0.5;
-
-    rightBoxRange.lower = upper->key-mWidth*0.5;
-    rightBoxRange.upper = upper->key+mWidth*0.5;
-
-
-}
-
-bool QCPFinancial::pointToCoords(const QPointF &pos, double &key, double &value) {
-
-    QCPAxis *keyAxis = mKeyAxis.data();
-    QCPAxis *valueAxis = mValueAxis.data();
-    if (!keyAxis || !valueAxis) {
-        qDebug() << Q_FUNC_INFO << "invalid key or value axis";
-        return false;
-    }
-
-    QCPFinancialDataContainer::const_iterator begin, end; // note that upper is the actual upper point, and not 1 step after the upper point
-    getVisibleDataBounds(begin, end);
-    if (begin == mDataContainer->constEnd() || end == mDataContainer->constEnd())
-    {
-        qDebug()<<Q_FUNC_INFO<<"Empty Data!";
-        return false;
-    }
-
-    end++;
-    QCPFinancialDataContainer::const_iterator it;
-    if (keyAxis->orientation() == Qt::Horizontal)
-    {
-        for (it = begin; it != end; it++)
-        {
-            // determine whether pos is in open-close-box:
-            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
-            //QCPRange boxValueRange(it->close, it->open);
-            double posKey, posValue;
-            pixelsToCoords(pos, posKey, value);
-            if (boxKeyRange.contains(posKey)) // is in open-close-box
-            {
-                key = it->key;
-                return true;
-            }
-        }
-    } else // keyAxis->orientation() == Qt::Vertical
-    {
-        for (it = begin; it != end; ++it)
-        {
-            // determine whether pos is in open-close-box:
-            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
-            //QCPRange boxValueRange(it->close, it->open);
-            double posKey, posValue;
-            pixelsToCoords(pos, posKey, value);
-            if (boxKeyRange.contains(posKey)) // is in open-close-box
-            {
-                key = it->key;
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-bool QCPFinancial::coordsToPoint(const double &key, const double &value, QPointF &pos){
-    QCPAxis *keyAxis = mKeyAxis.data();
-    QCPAxis *valueAxis = mValueAxis.data();
-    if (!keyAxis || !valueAxis) {
-        qDebug() << Q_FUNC_INFO << "invalid key or value axis";
-        return false;
-    }
-
-    double x = keyAxis->coordToPixel(key);
-    double y = valueAxis->coordToPixel(value);
-    pos = QPointF(x, y);
-    return true;
-}
-////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
 /*! \internal
   
   Draws the data from \a begin to \a end-1 as Candlesticks with the provided \a painter.
@@ -26963,13 +26808,6 @@ void QCPFinancial::drawCandlestickPlot(QCPPainter *painter, const QCPFinancialDa
     QCPAxis *keyAxis = mKeyAxis.data();
     QCPAxis *valueAxis = mValueAxis.data();
     if (!keyAxis || !valueAxis) { qDebug() << Q_FUNC_INFO << "invalid key or value axis"; return; }
-
-    ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-    double minYValue = std::numeric_limits<double>::max();
-    double maxYValue = std::numeric_limits<double>::min();
-    double keyOfMinYValue = keyAxis->range().lower;
-    double keyOfmaxYValue = keyAxis->range().upper;
-    ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
 
     if (keyAxis->orientation() == Qt::Horizontal)
     {
@@ -26998,55 +26836,7 @@ void QCPFinancial::drawCandlestickPlot(QCPPainter *painter, const QCPFinancialDa
             // draw open-close box:
             double pixelWidth = getPixelWidth(it->key, keyPixel);
             painter->drawRect(QRectF(QPointF(keyPixel-pixelWidth, closePixel), QPointF(keyPixel+pixelWidth, openPixel)));
-
-            ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-            //TODO:if(it->open == 0){continue;}
-            double currentLow = it->low;
-            double currentHigh = it->high;
-            if (currentHigh >= maxYValue){
-                maxYValue = currentHigh;
-                keyOfmaxYValue = it->key;
-            }
-            if(currentLow <= minYValue){
-                minYValue = currentLow;
-                keyOfMinYValue = it->key;
-            }
-            ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
         }
-
-        ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-        {
-            //Draw MIN&MAX Value Tips
-            QString minValueString = QString("%1%2").arg("\342\206\220").arg(minYValue);
-            QString maxValueString = QString("%1%2").arg("\342\206\220").arg(maxYValue);
-
-            //QFont font = QGuiApplication::font();
-            QFontMetrics fm = QApplication::fontMetrics();
-            int pixelsMinValueStringWide = fm.width(minValueString);
-            int pixelsMaxValueStringWide = fm.width(maxValueString);
-            int pixelsHigh = fm.height();
-
-            QPointF minValuePoint = QPointF(keyAxis->coordToPixel(keyOfMinYValue), valueAxis->coordToPixel(minYValue)+pixelsHigh/2);
-            QPointF maxValuePoint = QPointF(keyAxis->coordToPixel(keyOfmaxYValue), valueAxis->coordToPixel(maxYValue)+pixelsHigh/2);
-            double rightKeyPointX = keyAxis->coordToPixel(keyAxis->range().upper);
-
-            if(rightKeyPointX - maxValuePoint.x() < pixelsMaxValueStringWide){
-                maxValueString = QString("%1%2").arg(maxYValue).arg("\342\206\222");
-                maxValuePoint.setX(maxValuePoint.x() - pixelsMaxValueStringWide);
-            }
-            if(rightKeyPointX - minValuePoint.x() < pixelsMinValueStringWide){
-                minValueString = QString("%1%2").arg(minYValue).arg("\342\206\222");;
-                minValuePoint.setX(minValuePoint.x() - pixelsMinValueStringWide);
-            }
-
-            painter->setPen(mPenPositive);
-            painter->drawText(maxValuePoint, maxValueString);
-
-            painter->setPen(mPenNegative);
-            painter->drawText(minValuePoint, minValueString);
-
-        }
-        ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
     } else // keyAxis->orientation() == Qt::Vertical
     {
         for (QCPFinancialDataContainer::const_iterator it = begin; it != end; ++it)

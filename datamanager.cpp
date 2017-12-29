@@ -664,12 +664,12 @@ bool DataManager::loadHistoricalTradeData(Stock * stock){
         qApp->processEvents();
     }
 
-//    if(ohlcDataMap->isEmpty()){
-//        QDate date = QDate::currentDate();
-//        date = date.addMonths(-12);
-//        downloadHistoricalData(stock->code(), date.toString("yyyyMMdd"));
-//        return false;
-//    }
+    if(ohlcDataMap->isEmpty()){
+        QDate date = QDate::currentDate();
+        date = date.addMonths(-12);
+        downloadHistoricalData(stock->code(), date.toString("yyyyMMdd"));
+        return false;
+    }
 
     emit historicalDataRead(stock);
     return true;

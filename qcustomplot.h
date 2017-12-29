@@ -4661,7 +4661,8 @@ public:
   void setCrossCurvePen(const QPen& pen);
   void setCrossCurveTextPen(const QPen& pen);
   void setCrossCurveVisible(bool visible);
-  void setCrossCurvePoint(const QPointF &point);
+  void setCrossCurvePoint(const QPointF &point){mCrossCurvePoint=point;}
+  QPointF crossCurvePoint() const {return mCrossCurvePoint;}
   bool pointToCoords(const QPoint &pos, double &key, double &value, QCPAxis::AxisType xAxisType = QCPAxis::atBottom, int xAxisIndex = 0, QCPAxis::AxisType yAxisType = QCPAxis::atLeft, int yAxisIndex = 0);
   ////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
 
@@ -5932,15 +5933,6 @@ public:
   // static methods:
   static QCPFinancialDataContainer timeSeriesToOhlc(const QVector<double> &time, const QVector<double> &value, double timeBinSize, double timeBinOffset = 0);
   
-  
-  ////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-  void getBoundValuesInVisibleRange(double &minValue, double &maxValue, uint &itemCount, double *leftKey = 0, double *rightkey = 0) const;
-  void getBoundValuesInVisibleRange(QCPRange &valueRange, QCPRange &leftBoxRange, QCPRange &rightBoxRange) const;
-  bool pointToCoords(const QPointF &pos, double &key, double &value);
-  bool coordsToPoint(const double &key, const double &value, QPointF &pos);
-  ////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-
-  
 protected:
   // property members:
   ChartStyle mChartStyle;
@@ -5956,10 +5948,7 @@ protected:
   
   // non-virtual methods:
   void drawOhlcPlot(QCPPainter *painter, const QCPFinancialDataContainer::const_iterator &begin, const QCPFinancialDataContainer::const_iterator &end, bool isSelected);
-
-  ////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
   void drawCandlestickPlot(QCPPainter *painter, const QCPFinancialDataContainer::const_iterator &begin, const QCPFinancialDataContainer::const_iterator &end, bool isSelected);
- ////---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
 
   double getPixelWidth(double key, double keyPixel) const;
   double ohlcSelectTest(const QPointF &pos, const QCPFinancialDataContainer::const_iterator &begin, const QCPFinancialDataContainer::const_iterator &end, QCPFinancialDataContainer::const_iterator &closestDataPoint) const;
