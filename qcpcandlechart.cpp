@@ -4,10 +4,13 @@
 const int CANDLE_MAX_PIXEL_WIDTH = 40;
 const int CANDLE_MIN_PIXEL_WIDTH = 1;
 const int CANDLE_PREFER_PIXEL_WIDTH = 10;
+const double CANDLE_SIDE_BLANK = 2.0;   //此参数乘以mWidth，实际留白的宽度为(CANDLE_SIDE_BLANK-1)*mWidth
 
 QCPCandleChart::QCPCandleChart(QCPAxis *keyAxis, QCPAxis *valueAxis)\
     : QCPFinancial(keyAxis, valueAxis)
 {
+    connect(keyAxis, SIGNAL(rangeChanged(QCPRange)), \
+            this, SLOT(onKeyAxisRangeChanged(QCPRange)));
 }
 
 void QCPCandleChart::draw(QCPPainter *painter)
@@ -18,98 +21,102 @@ void QCPCandleChart::draw(QCPPainter *painter)
 
 void QCPCandleChart::drawIndicatorText(QCPPainter *painter)
 {
-//    QCPAxis *keyAxis = mKeyAxis.data();
-//    QCPAxis *valueAxis = mValueAxis.data();
-//    if (!keyAxis || !valueAxis) { qDebug() << Q_FUNC_INFO << "invalid key or value axis"; return; }
+    //    QCPAxis *keyAxis = mKeyAxis.data();
+    //    QCPAxis *valueAxis = mValueAxis.data();
+    //    if (!keyAxis || !valueAxis) { qDebug() << Q_FUNC_INFO << "invalid key or value axis"; return; }
 
-//    ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-//    double minYValue = std::numeric_limits<double>::max();
-//    double maxYValue = std::numeric_limits<double>::min();
-//    double keyOfMinYValue = keyAxis->range().lower;
-//    double keyOfmaxYValue = keyAxis->range().upper;
-//    ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
+    //    ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
+    //    double minYValue = std::numeric_limits<double>::max();
+    //    double maxYValue = std::numeric_limits<double>::min();
+    //    double keyOfMinYValue = keyAxis->range().lower;
+    //    double keyOfmaxYValue = keyAxis->range().upper;
+    //    ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
 
-//    if (keyAxis->orientation() == Qt::Horizontal)
-//    {
-//        for (QCPFinancialDataContainer::const_iterator it = begin; it != end; ++it)
-//        {
-//            if (isSelected && mSelectionDecorator)
-//            {
-//                mSelectionDecorator->applyPen(painter);
-//                mSelectionDecorator->applyBrush(painter);
-//            } else if (mTwoColored)
-//            {
-//                painter->setPen(it->close >= it->open ? mPenPositive : mPenNegative);
-//                painter->setBrush(it->close >= it->open ? mBrushPositive : mBrushNegative);
-//            } else
-//            {
-//                painter->setPen(mPen);
-//                painter->setBrush(mBrush);
-//            }
-//            double keyPixel = keyAxis->coordToPixel(it->key);
-//            double openPixel = valueAxis->coordToPixel(it->open);
-//            double closePixel = valueAxis->coordToPixel(it->close);
-//            // draw high:
-//            painter->drawLine(QPointF(keyPixel, valueAxis->coordToPixel(it->high)), QPointF(keyPixel, valueAxis->coordToPixel(qMax(it->open, it->close))));
-//            // draw low:
-//            painter->drawLine(QPointF(keyPixel, valueAxis->coordToPixel(it->low)), QPointF(keyPixel, valueAxis->coordToPixel(qMin(it->open, it->close))));
-//            // draw open-close box:
-//            double pixelWidth = getPixelWidth(it->key, keyPixel);
-//            painter->drawRect(QRectF(QPointF(keyPixel-pixelWidth, closePixel), QPointF(keyPixel+pixelWidth, openPixel)));
+    //    if (keyAxis->orientation() == Qt::Horizontal)
+    //    {
+    //        for (QCPFinancialDataContainer::const_iterator it = begin; it != end; ++it)
+    //        {
+    //            if (isSelected && mSelectionDecorator)
+    //            {
+    //                mSelectionDecorator->applyPen(painter);
+    //                mSelectionDecorator->applyBrush(painter);
+    //            } else if (mTwoColored)
+    //            {
+    //                painter->setPen(it->close >= it->open ? mPenPositive : mPenNegative);
+    //                painter->setBrush(it->close >= it->open ? mBrushPositive : mBrushNegative);
+    //            } else
+    //            {
+    //                painter->setPen(mPen);
+    //                painter->setBrush(mBrush);
+    //            }
+    //            double keyPixel = keyAxis->coordToPixel(it->key);
+    //            double openPixel = valueAxis->coordToPixel(it->open);
+    //            double closePixel = valueAxis->coordToPixel(it->close);
+    //            // draw high:
+    //            painter->drawLine(QPointF(keyPixel, valueAxis->coordToPixel(it->high)), QPointF(keyPixel, valueAxis->coordToPixel(qMax(it->open, it->close))));
+    //            // draw low:
+    //            painter->drawLine(QPointF(keyPixel, valueAxis->coordToPixel(it->low)), QPointF(keyPixel, valueAxis->coordToPixel(qMin(it->open, it->close))));
+    //            // draw open-close box:
+    //            double pixelWidth = getPixelWidth(it->key, keyPixel);
+    //            painter->drawRect(QRectF(QPointF(keyPixel-pixelWidth, closePixel), QPointF(keyPixel+pixelWidth, openPixel)));
 
-//            ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-//            //TODO:if(it->open == 0){continue;}
-//            double currentLow = it->low;
-//            double currentHigh = it->high;
-//            if (currentHigh >= maxYValue){
-//                maxYValue = currentHigh;
-//                keyOfmaxYValue = it->key;
-//            }
-//            if(currentLow <= minYValue){
-//                minYValue = currentLow;
-//                keyOfMinYValue = it->key;
-//            }
-//            ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-//        }
+    //            ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
+    //            //TODO:if(it->open == 0){continue;}
+    //            double currentLow = it->low;
+    //            double currentHigh = it->high;
+    //            if (currentHigh >= maxYValue){
+    //                maxYValue = currentHigh;
+    //                keyOfmaxYValue = it->key;
+    //            }
+    //            if(currentLow <= minYValue){
+    //                minYValue = currentLow;
+    //                keyOfMinYValue = it->key;
+    //            }
+    //            ////end---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
+    //        }
 
-//        ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
-//        {
-//            //Draw MIN&MAX Value Tips
-//            QString minValueString = QString("%1%2").arg("\342\206\220").arg(minYValue);
-//            QString maxValueString = QString("%1%2").arg("\342\206\220").arg(maxYValue);
+    //        ////start---------------EXTENDED BY HEHUI, MODIFIED BY Bringer-of-Light---------------////
+    //        {
+    //            //Draw MIN&MAX Value Tips
+    //            QString minValueString = QString("%1%2").arg("\342\206\220").arg(minYValue);
+    //            QString maxValueString = QString("%1%2").arg("\342\206\220").arg(maxYValue);
 
-//            //QFont font = QGuiApplication::font();
-//            QFontMetrics fm = QApplication::fontMetrics();
-//            int pixelsMinValueStringWide = fm.width(minValueString);
-//            int pixelsMaxValueStringWide = fm.width(maxValueString);
-//            int pixelsHigh = fm.height();
+    //            //QFont font = QGuiApplication::font();
+    //            QFontMetrics fm = QApplication::fontMetrics();
+    //            int pixelsMinValueStringWide = fm.width(minValueString);
+    //            int pixelsMaxValueStringWide = fm.width(maxValueString);
+    //            int pixelsHigh = fm.height();
 
-//            QPointF minValuePoint = QPointF(keyAxis->coordToPixel(keyOfMinYValue), valueAxis->coordToPixel(minYValue)+pixelsHigh/2);
-//            QPointF maxValuePoint = QPointF(keyAxis->coordToPixel(keyOfmaxYValue), valueAxis->coordToPixel(maxYValue)+pixelsHigh/2);
-//            double rightKeyPointX = keyAxis->coordToPixel(keyAxis->range().upper);
+    //            QPointF minValuePoint = QPointF(keyAxis->coordToPixel(keyOfMinYValue), valueAxis->coordToPixel(minYValue)+pixelsHigh/2);
+    //            QPointF maxValuePoint = QPointF(keyAxis->coordToPixel(keyOfmaxYValue), valueAxis->coordToPixel(maxYValue)+pixelsHigh/2);
+    //            double rightKeyPointX = keyAxis->coordToPixel(keyAxis->range().upper);
 
-//            if(rightKeyPointX - maxValuePoint.x() < pixelsMaxValueStringWide){
-//                maxValueString = QString("%1%2").arg(maxYValue).arg("\342\206\222");
-//                maxValuePoint.setX(maxValuePoint.x() - pixelsMaxValueStringWide);
-//            }
-//            if(rightKeyPointX - minValuePoint.x() < pixelsMinValueStringWide){
-//                minValueString = QString("%1%2").arg(minYValue).arg("\342\206\222");;
-//                minValuePoint.setX(minValuePoint.x() - pixelsMinValueStringWide);
-//            }
+    //            if(rightKeyPointX - maxValuePoint.x() < pixelsMaxValueStringWide){
+    //                maxValueString = QString("%1%2").arg(maxYValue).arg("\342\206\222");
+    //                maxValuePoint.setX(maxValuePoint.x() - pixelsMaxValueStringWide);
+    //            }
+    //            if(rightKeyPointX - minValuePoint.x() < pixelsMinValueStringWide){
+    //                minValueString = QString("%1%2").arg(minYValue).arg("\342\206\222");;
+    //                minValuePoint.setX(minValuePoint.x() - pixelsMinValueStringWide);
+    //            }
 
-//            painter->setPen(mPenPositive);
-//            painter->drawText(maxValuePoint, maxValueString);
+    //            painter->setPen(mPenPositive);
+    //            painter->drawText(maxValuePoint, maxValueString);
 
-//            painter->setPen(mPenNegative);
-//            painter->drawText(minValuePoint, minValueString);
+    //            painter->setPen(mPenNegative);
+    //            painter->drawText(minValuePoint, minValueString);
 
-//        }
-//    }
+    //        }
+    //    }
 }
 
-bool QCPCandleChart::canZoom(const double& requestFactor, double& preferFactor)
+bool QCPCandleChart::canZoom(const double& requestFactor, \
+                             double& preferFactor, \
+                             const double& requestCenter, \
+                             double& preferCenter)
 {
-    preferFactor = 1.0;
+    preferFactor = requestFactor;
+    preferCenter = requestCenter;
     if (!mKeyAxis) return false;
     if (mDataContainer->isEmpty()) return false;
 
@@ -128,26 +135,116 @@ bool QCPCandleChart::canZoom(const double& requestFactor, double& preferFactor)
         begin = mDataContainer->constBegin();
         end = mDataContainer->constEnd();
         --end;
-        if (begin>=end) return false;
-        double dataRange = end->key - begin->key;
-        if (pixels <= CANDLE_MIN_PIXEL_WIDTH || (dataRange <= axisRange)) \
+        if (begin>end) return false;
+        double dataRange = end->key - begin->key + CANDLE_SIDE_BLANK*mWidth;
+        if (pixels <= CANDLE_MIN_PIXEL_WIDTH && (dataRange <= axisRange)) \
             return false;
 
         preferFactor =qMin((dataRange/axisRange),requestFactor);
     }
+    if ((qAbs(requestCenter - mKeyAxis->range().lower) \
+         - 0.6*CANDLE_SIDE_BLANK*mWidth)<=0){
+        preferCenter = mKeyAxis->range().lower;
+    }else if ((qAbs(requestCenter - mKeyAxis->range().upper) \
+               - 0.6*CANDLE_SIDE_BLANK*mWidth)<=0){
+        preferCenter = mKeyAxis->range().upper;
+    }
     return true;
+}
+
+bool QCPCandleChart::setKeyAxisAutoFitGrid()
+{
+    if (mKeyAxis.isNull()) return false;
+    if (mDataContainer.isNull()) return false;
+    if (mDataContainer->isEmpty()) return false;
+
+    QCPFinancialDataContainer::const_iterator begin, end;
+    begin = mDataContainer->constBegin();
+    end = mDataContainer->constEnd();
+    --end;
+    if (begin>end) return false;
+    double dataBegin = begin->key - 0.5*CANDLE_SIDE_BLANK*mWidth;
+    double dataEnd = end->key + 0.5*CANDLE_SIDE_BLANK*mWidth;
+    double dataRange = dataEnd - dataBegin;
+    double axisRangeSize = mKeyAxis->range().size();
+
+    //如果数据不能铺满plot,自动靠左
+    if (dataRange<=axisRangeSize){
+        mKeyAxis->setRange(dataBegin, dataBegin+axisRangeSize);
+    }else{
+        double newEnd = mKeyAxis->range().upper;
+        //如果数据可以铺满plot，自动对齐
+        if (end->key <= mKeyAxis->range().upper){
+            newEnd = end->key + 0.5*CANDLE_SIDE_BLANK*mWidth;
+        }else{
+            getVisibleDataBounds(begin,end);
+            if ((--(--end)) != mDataContainer->constEnd())
+            {
+                //getVisibleDataBounds已经计算过边距,所以此处CANDLE_SIDE_BLANK-1
+                newEnd = (end)->key+0.5*(CANDLE_SIDE_BLANK-1)*mWidth;
+            }
+        }
+        mKeyAxis->setRange(newEnd-axisRangeSize,newEnd);
+    }
+    return true;
+}
+void QCPCandleChart::drag(double pointDiff)
+{
+    double coords = coordsWidthToPixelWidth(pointDiff);
+    if (!canDrag(coords)) return;
+    mKeyAxis->moveRange(-coords);
+}
+
+bool QCPCandleChart::canDrag(double& preferWidth)
+{
+    if (!mKeyAxis) return true;
+    if (mDataContainer.isNull()) return true;
+    if (mDataContainer->isEmpty()) return true;
+    if (preferWidth<0){
+        QCPFinancialDataContainer::const_iterator end = mDataContainer->constEnd();
+        --end;
+        double dataEnd = end->key+0.5*mWidth*CANDLE_SIDE_BLANK;
+        double rangeUpper = mKeyAxis->range().upper;
+        if (dataEnd <= rangeUpper) return false;
+
+        double diff = -(dataEnd - rangeUpper);
+        preferWidth = qMax(diff, preferWidth);
+        return true;
+    }else if (preferWidth>0){
+        QCPFinancialDataContainer::const_iterator begin = mDataContainer->constBegin();
+        double dataBegin = begin->key-0.5*mWidth*CANDLE_SIDE_BLANK;
+        double rangeLower = mKeyAxis->range().lower;
+        if (dataBegin >= rangeLower) return false;
+
+        double diff = -(dataBegin - rangeLower);
+        preferWidth = qMin(diff, preferWidth);
+        return true;
+    }
+    return false;
 }
 
 bool QCPCandleChart::zoom(const double& factor, const double& center)
 {
     if (!mKeyAxis) return false;
-    double preferFactor = 1.0;
-    if (!canZoom(factor, preferFactor)) return false;
-    mKeyAxis->scaleRange(preferFactor, center);
+    double preferFactor = factor, preferCenter = center;
+    if (!canZoom(factor, preferFactor, center, preferCenter)) return false;
+    mKeyAxis->scaleRange(preferFactor, preferCenter);
+
+    setKeyAxisAutoFitGrid();
+
     return true;
 }
+
+void QCPCandleChart::onKeyAxisRangeChanged(const QCPRange& range)
+{
+    Q_UNUSED(range);
+    adjustValueRange();
+}
+
 void QCPCandleChart::adjustValueRange(double marginRatio)
 {
+    if (mDataContainer.isNull()) return;
+    if (mValueAxis.isNull()) return;
     double minValue = 0, maxValue = 0;
     getRatioBoundValuesInVisibleRange(minValue, maxValue, marginRatio);
 
@@ -155,6 +252,70 @@ void QCPCandleChart::adjustValueRange(double marginRatio)
             mValueAxis->range().upper != maxValue){
         mValueAxis->setRange(minValue, maxValue);
     }
+}
+
+void QCPCandleChart::adjustKeyRangeOnResize(const double& factor)
+{
+    ///factor表示新宽度和老宽度的比值
+    if (factor == 1.0 || factor <= 0) return;
+    if (mDataContainer.isNull()) return;
+    if (mKeyAxis.isNull()) return;
+    QCPFinancialDataContainer::const_iterator begin, end;
+    begin = mDataContainer->constBegin();
+    end = mDataContainer->constEnd();
+    --end;
+    if (begin>end) return;
+    double dataBegin = begin->key - mWidth*0.5*CANDLE_SIDE_BLANK;
+    double dataEnd = end->key + mWidth*0.5*CANDLE_SIDE_BLANK;
+    double dataRangeSize = dataEnd - dataBegin;
+    double axisRangeSize = mKeyAxis->range().size();
+    double newAxisRangeSize = axisRangeSize*factor;
+
+    double lower = dataBegin;
+    if (newAxisRangeSize < dataRangeSize){
+        //        if (dataEnd>mKeyAxis->range().upper){
+        lower = qMax(dataBegin, mKeyAxis->range().upper - newAxisRangeSize);
+        //        }else{
+        //            lower = mKeyAxis->range().lower;
+        //        }
+    }
+    mKeyAxis->setRange(lower,lower+newAxisRangeSize);
+
+    setKeyAxisAutoFitGrid();
+}
+
+void QCPCandleChart::initAdjustAll()
+{
+    if (mDataContainer.isNull()) return;
+    if (mKeyAxis.isNull()) return;
+    double curPixelWidth = coordsWidthToPixelWidth(mWidth);
+    if (curPixelWidth == 0) return;
+    double factor = curPixelWidth/CANDLE_PREFER_PIXEL_WIDTH;
+    mKeyAxis->scaleRange(factor);
+
+    //设定边界起始点
+    QCPFinancialDataContainer::const_iterator begin, end;
+    begin = mDataContainer->constBegin();
+    end = mDataContainer->constEnd();
+    --end;
+    if (begin>end) return;
+    double dataBegin = begin->key - mWidth*0.5*CANDLE_SIDE_BLANK;
+    double dataEnd = end->key + mWidth*0.5*CANDLE_SIDE_BLANK;
+    double dataRangeSize = dataEnd - dataBegin;
+    double axisRangeSize = mKeyAxis->range().size();
+    if(dataRangeSize>=axisRangeSize)
+    {
+        mKeyAxis->setRange(dataEnd-axisRangeSize-mWidth*CANDLE_SIDE_BLANK,\
+                           dataEnd);
+    }else
+    {
+        mKeyAxis->setRange(dataBegin,axisRangeSize+mWidth);
+    }
+
+    setKeyAxisAutoFitGrid();
+
+    //自适应value高度
+    adjustValueRange();
 }
 
 void QCPCandleChart::getRatioBoundValuesInVisibleRange(double &minValue, double &maxValue, double marginRatio) const
@@ -183,7 +344,6 @@ void QCPCandleChart::getRatioBoundValuesInVisibleRange(double &minValue, double 
         }
     }
 
-
     double curRange = mValueAxis->range().upper - \
             mValueAxis->range().lower;
     double margins = marginRatio * curRange;
@@ -208,8 +368,8 @@ void QCPCandleChart::getRatioVisibleDataBounds(QCPFinancialDataContainer::const_
     QCPRange visibleRange = mKeyAxis.data()->range();
     // add half width of ohlc/candlestick to include partially visible data points
     // subtract half width of ohlc/candlestick to include partially visible data points
-    double halfLength = 0.5*((visibleRange.upper+mWidth*0.5) \
-                             - (visibleRange.lower-mWidth*0.5));
+    double halfLength = 0.5*((visibleRange.upper+mWidth*0.5*CANDLE_SIDE_BLANK) \
+                             - (visibleRange.lower-mWidth*0.5*CANDLE_SIDE_BLANK));
     double ratioLower = visibleRange.lower + halfLength * (1-ratio);
     double ratioUpper = visibleRange.upper - halfLength * (1-ratio);
     begin = mDataContainer->findBegin(ratioLower);
@@ -298,9 +458,9 @@ void QCPCandleChart::getRatioVisibleDataBounds(QCPFinancialDataContainer::const_
 
 bool QCPCandleChart::findFocusKey(const QPointF &pos, double &key, double &value) {
 
-    QCPAxis *keyAxis = mKeyAxis.data();
-    QCPAxis *valueAxis = mValueAxis.data();
-    if (!keyAxis || !valueAxis) {
+    //    QCPAxis *keyAxis = mKeyAxis.data();
+    //    QCPAxis *valueAxis = mValueAxis.data();
+    if (mKeyAxis || mValueAxis) {
         qDebug() << Q_FUNC_INFO << "invalid key or value axis";
         return false;
     }
@@ -309,43 +469,58 @@ bool QCPCandleChart::findFocusKey(const QPointF &pos, double &key, double &value
     getVisibleDataBounds(begin, end);
     if (begin == mDataContainer->constEnd())
     {
-        //qDebug()<<Q_FUNC_INFO<<"Empty Data!";
+        qDebug()<<Q_FUNC_INFO<<"Can not find fouce key!";
         return false;
     }
 
-    //end++;
-    QCPFinancialDataContainer::const_iterator it;
-    if (keyAxis->orientation() == Qt::Horizontal)
+    //    if (keyAxis->orientation() == Qt::Horizontal)
+    //    {
+
+    double posKey, posValue;
+    pixelsToCoords(pos, posKey, value);
+
+    QCPFinancialDataContainer::const_iterator visibleEnd = end;
+    visibleEnd--;
+    //如果是最左边的数据
+    if (posKey<=begin->key){
+        posKey = begin->key;
+        return true;
+    }
+    if (visibleEnd != mDataContainer->constEnd())
     {
-        for (it = begin; it != end; it++)
-        {
-            // determine whether pos is in open-close-box:
-            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
-            //QCPRange boxValueRange(it->close, it->open);
-            double posKey, posValue;
-            pixelsToCoords(pos, posKey, value);
-            if (boxKeyRange.contains(posKey)) // is in open-close-box
-            {
-                key = it->key;
-                return true;
-            }
-        }
-    } else // keyAxis->orientation() == Qt::Vertical
-    {
-        for (it = begin; it != end; ++it)
-        {
-            // determine whether pos is in open-close-box:
-            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
-            //QCPRange boxValueRange(it->close, it->open);
-            double posKey, posValue;
-            pixelsToCoords(pos, posKey, value);
-            if (boxKeyRange.contains(posKey)) // is in open-close-box
-            {
-                key = it->key;
-                return true;
-            }
+        if (posKey>=visibleEnd->key){
+            posKey = visibleEnd->key;
+            return true;
         }
     }
+
+    QCPFinancialDataContainer::const_iterator it;
+    for (it = begin; it != end; it++)
+    {
+        // determine whether pos is in open-close-box:
+        QCPRange boxKeyRange(it->key-mWidth, it->key+mWidth);
+        if (boxKeyRange.contains(posKey)) // is in open-close-box
+        {
+            key = it->key;
+            return true;
+        }
+    }
+//    //    }/* else // keyAxis->orientation() == Qt::Vertical
+//    {
+//        for (it = begin; it != end; ++it)
+//        {
+//            // determine whether pos is in open-close-box:
+//            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
+//            //QCPRange boxValueRange(it->close, it->open);
+//            double posKey, posValue;
+//            pixelsToCoords(pos, posKey, value);
+//            if (boxKeyRange.contains(posKey)) // is in open-close-box
+//            {
+//                key = it->key;
+//                return true;
+//            }
+//        }
+//    }*/
     return false;
 }
 
@@ -359,6 +534,17 @@ bool QCPCandleChart::coordsToPoint(const double &key, const double &value, QPoin
     double y = mValueAxis->coordToPixel(value);
     pos = QPointF(x, y);
     return true;
+}
+
+double QCPCandleChart::pixelWidthToCoordsWidth(double width)
+{
+    if (mKeyAxis.isNull()){
+        qDebug() << Q_FUNC_INFO << "invalid key axis";
+        return 0;
+    }
+    double begin = mKeyAxis->pixelToCoord(0);
+    double end = mKeyAxis->pixelToCoord(width);
+    return (end - begin);
 }
 
 double QCPCandleChart::coordsWidthToPixelWidth(double width)

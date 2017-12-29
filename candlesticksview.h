@@ -47,9 +47,6 @@ private:
 
 private slots:
     void zoom(double zoomFactor);
-    void moveLeft();
-    void moveRight();
-
     void adjustAllAndReplot();
     void adjustVolumeYRange();
 private:
@@ -64,10 +61,14 @@ signals:
     void escape();
 protected:
     void mouseDoubleClickEvent(QMouseEvent *event);
+    void mousePressEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void wheelEvent(QWheelEvent *event);
     void keyPressEvent(QKeyEvent *event);
+    void resizeEvent(QResizeEvent *event);
 private:
+    bool m_mouseLeftPressing;
     double m_leftKey, m_focusedKey, m_rightKey; //X轴的左中右坐标
 
     //indicator

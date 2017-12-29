@@ -40,17 +40,13 @@ CandlesticksView::CandlesticksView(QWidget *parent)
     m_volumeNeg = 0;
     m_vyAxis = 0;
 
+    m_mouseLeftPressing = false;
     m_leftKey = 0;
     m_focusedKey = 0;
     m_rightKey = 0;
 
     m_crossVisble = true;
 
-    //坐标轴
-    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
-            xAxis2, SLOT(setRange(QCPRange)));
-    connect(yAxis, SIGNAL(rangeChanged(QCPRange)),
-            yAxis2, SLOT(setRange(QCPRange)));
     initCandlesticks();
 }
 
@@ -62,6 +58,14 @@ void CandlesticksView::initCandlesticks(){
     this->setBackground(QBrush(CANDLE_BACKGROUND_QCOLOR));
     this->setAutoAddPlottableToLegend(false);
     this->plotLayout()->setMargins(MARGINS_PLOT);
+
+    this->axisRect()->layout()->setMargins(MARGINS_AXISRECT_LAYOUT);
+
+    //坐标轴
+    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
+            xAxis2, SLOT(setRange(QCPRange)));
+    connect(yAxis, SIGNAL(rangeChanged(QCPRange)),
+            yAxis2, SLOT(setRange(QCPRange)));
 
     //创建蜡烛图
     m_candleChart = new QCPCandleChart(xAxis, yAxis);
@@ -79,7 +83,6 @@ void CandlesticksView::initCandlesticks(){
 
     //设置蜡烛图格式等
     this->axisRect()->setCrossCurveVisible(true);
-    this->axisRect()->layout()->setMargins(MARGINS_AXISRECT_LAYOUT);
     this->axisRect()->setCrossCurvePen(CANDLE_CROSS_PEN);
 
     xAxis->setVisible(false);
@@ -131,11 +134,15 @@ void CandlesticksView::initCandlesticks(){
     // interconnect x axis ranges of main and bottom axis rects:
     connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
             vxAxis, SLOT(setRange(QCPRange)));
-
+    connect(vxAxis, SIGNAL(rangeChanged(QCPRange)), \
+            xAxis, SLOT(setRange(QCPRange)));
     connect(vxAxis, SIGNAL(rangeChanged(QCPRange)), \
             m_vAxisRect->axis(QCPAxis::atTop), SLOT(setRange(QCPRange)));
     connect(vyAxis, SIGNAL(rangeChanged(QCPRange)), \
             vyAxis2, SLOT(setRange(QCPRange)));
+
+    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
+            this, SLOT(adjustVolumeYRange()));
 
     m_vyAxis = vyAxis;
     //调整大小
@@ -169,7 +176,7 @@ Stock * CandlesticksView::currentStock(){
 
 bool CandlesticksView::isEmpty()
 {
-    return (!m_curStock || m_ohlcData.isNull() || m_ohlcData->isEmpty());
+    return (!m_curStock || m_ohlcData.isNull() || m_ohlcData->isEmpty() || !m_candleChart);
 }
 
 void CandlesticksView::historicalDataRead(Stock *stock){
@@ -217,35 +224,72 @@ void CandlesticksView::showStock(const QString &code){
 }
 
 void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
+    QCustomPlot::mouseDoubleClickEvent(event);
     if (isEmpty()) return;
     setCrossAndInfoVisible(!m_crossVisble);
 }
 
+void CandlesticksView::mousePressEvent(QMouseEvent *event)
+{
+    QCustomPlot::mousePressEvent(event);
+    if (event->button() == Qt::LeftButton){
+        m_mouseLeftPressing = true;
+    }
+}
+void CandlesticksView::mouseReleaseEvent(QMouseEvent *event)
+{
+    qDebug() << "CandlesticksView mouseReleaseEvent";
+    QCustomPlot::mouseReleaseEvent(event);
+    m_mouseLeftPressing = false;
+}
 void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
-    double key = getFocusKey(event->pos());
-    updateInfoView(key);
-    updateCrossCurvePoint(getFocusPoint(key));
+    QCustomPlot::mouseMoveEvent(event);
+    QPoint pos = event->pos();
+    static QPoint lastPos(pos);
+    //    double key = getFocusKey(pos);
+    //TODO
+    //    updateInfoView(key);
+    //    updateCrossCurvePoint(getFocusPoint(key));
+
+    if (isEmpty()) return;
+    if (m_mouseLeftPressing)
+    {
+        m_candleChart->drag(pos.x()-lastPos.x());
+    }
+    lastPos = pos;
 }
 
 void CandlesticksView::wheelEvent(QWheelEvent* event){
+    //QCustomPlot::wheelEvent(event);
     if (isEmpty()) return;
-    int wheelSteps = event->delta()/120.0;
-    //    if(event->modifiers() == Qt::ControlModifier){
-    //        //CTRL+滚轮 进制缩放
-    //        double factor;
-    //        factor = qPow(0.85, wheelSteps);
-    //        xAxis->scaleRange(factor, xAxis->pixelToCoord(event->pos().x()));
-    //        replot();
+    //    int wheelSteps = event->delta()/120.0;
+    //    //    if(event->modifiers() == Qt::ControlModifier){
+    //    //        //CTRL+滚轮 进制缩放
+    //    //        double factor;
+    //    //        factor = qPow(0.85, wheelSteps);
+    //    //        xAxis->scaleRange(factor, xAxis->pixelToCoord(event->pos().x()));
+    //    //        replot();
 
-    //        event->accept();
-    //    }else{
-    //        event->ignore();
-    //    }
-    m_stockCodeExpected = m_stockCode;
-    emit historicalDataRequested(&m_stockCodeExpected, -wheelSteps);
+    //    //        event->accept();
+    //    //    }else{
+    //    //        event->ignore();
+    //    //    }
+    //    m_stockCodeExpected = m_stockCode;
+    //    emit historicalDataRequested(&m_stockCodeExpected, -wheelSteps);
+}
+
+void CandlesticksView::resizeEvent(QResizeEvent *event)
+{
+    QCustomPlot::resizeEvent(event);
+    if (isEmpty()) {return;}
+    double factor = (1.0*size().width())/event->oldSize().width();
+    m_candleChart->adjustKeyRangeOnResize(factor);
+    replot();
 }
 
 void CandlesticksView::keyPressEvent(QKeyEvent *event){
+    QCustomPlot::keyPressEvent(event);
+
     if(event->key() != Qt::Key_Escape && isEmpty()){return;}
 
     switch (event->key()) {
@@ -270,12 +314,10 @@ void CandlesticksView::keyPressEvent(QKeyEvent *event){
         break;
     case Qt::Key_Left:
     {
-        moveLeft();
     }
         break;
     case Qt::Key_Right:
     {
-        moveRight();
     }
         break;
     default:
@@ -302,34 +344,22 @@ double CandlesticksView::getZoomCenter()
 void CandlesticksView::zoom(double zoomFactor)
 {
     if (isEmpty()) return;
+
     if (false == \
-            m_candleChart->zoom\
-            (zoomFactor, getZoomCenter()) )
+            m_candleChart->zoom(zoomFactor, getZoomCenter()) )
     {
         //can not zoom
         return;
     }
-    m_candleChart->adjustValueRange(CANDLE_BASE_MARGIN_RATIO);
-
-    adjustVolumeYRange();
     replot();
 }
 
-void CandlesticksView::moveLeft()
-{
-    //TODO
-}
-void CandlesticksView::moveRight()
-{
-    //TODO
-}
 void CandlesticksView::adjustAllAndReplot()
 {
     rescaleAxes();
     if (isEmpty()) return;
     //TODO adjust X range
-    m_candleChart->adjustValueRange(CANDLE_BASE_MARGIN_RATIO);
-    adjustVolumeYRange();
+    m_candleChart->initAdjustAll();
     replot();
 }
 
