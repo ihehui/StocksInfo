@@ -19,18 +19,21 @@ public:
     ///重置整个布局,以合适的宽度/位置来显示整个图形
     void initAdjustAll();
 
-    bool findFocusKey(const QPointF &pos, double &key, double &value);
+    bool getFocusKeyAndValue(const QPointF &pos, double &key, double &value);
 
     bool setKeyAxisAutoFitGrid();
 
 private:
     bool canZoom(const double& requestFactor, double& preferFactor, \
                  const double& requestCenter, double& preferCenter);
+
+    //drag
 public:
+    bool move(const double& startKey, const int& step, double& preferKey, double& preferValue);
     bool canDrag(const double& preferPixelWidth);
 private:
-//    void drag(double pointDiff);
     bool canDragInner(double& preferCoordsWidth);
+
 private slots:
     void onKeyAxisRangeChanged(const QCPRange& range);
 protected:

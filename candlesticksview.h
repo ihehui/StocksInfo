@@ -5,6 +5,7 @@
 
 #include "qcustomplot.h"
 #include "qcpcandlechart.h"
+#include "qcpcandleticker.h"
 #include "tradesummaryinfoview.h"
 #include "common.h"
 #include "datamanager.h"
@@ -40,6 +41,9 @@ private:
 private:
     void initCandlesticks();
     void initTickAndGridStyle(QCPAxis* axis);
+    void initTracer(QCPItemTracer* tracer);
+    void initTracerText();
+
     double getFocusKey(const QPointF& point);
     QPointF getFocusPoint(const double& key);
 
@@ -54,7 +58,7 @@ private:
     QCPAxisRect* m_vAxisRect;
     QCPBars *m_volumePos; //成交量柱
     QCPBars *m_volumeNeg;
-    QCPAxis *m_vyAxis;
+    QCPAxis *m_vxAxis, *m_vyAxis;
 
     //control
 signals:
@@ -73,12 +77,20 @@ private:
 
     //indicator
     //cross and info view
-private slots:
-    void setCrossAndInfoVisible(bool visible=true);
-    void updateCrossCurvePoint(const QPointF &pos);
-    void updateInfoView(const double& key);
 private:
-    bool m_crossVisble;
+    QCPItemTracer* m_tracerCandle, *m_tracerVolume;
+    bool m_tracerVisible;
+
+    QCPItemText* m_leftTracerLabel, *m_rightTracerLabel;
+    QCPItemText* m_leftVLabel, *m_rightVLabel, *m_bottomTracerLabel;
+private slots:
+    void setTracerAndInfoVisible(bool visible=true);
+private:
+    void updateTracerAndInfo(const QPoint& pos);
+    void updateTracerAndInfoInner(const double& key, const double& candleValue,\
+                                  const double& volumeValue, const bool& bInCandle,\
+                                  const bool& bInVolume);
+    void moveTracer(const int& step);
 };
 
 #endif // CANDLESTICKSVIEW_H

@@ -2,7 +2,7 @@
 #include <QtMath>
 
 const int CANDLE_MAX_PIXEL_WIDTH = 40;
-const int CANDLE_MIN_PIXEL_WIDTH = 1;
+const int CANDLE_MIN_PIXEL_WIDTH = 2;
 const int CANDLE_PREFER_PIXEL_WIDTH = 10;
 const double CANDLE_SIDE_BLANK = 2.0;   //此参数乘以mWidth，实际留白的宽度为(CANDLE_SIDE_BLANK-1)*mWidth
 
@@ -127,7 +127,8 @@ bool QCPCandleChart::canZoom(const double& requestFactor, \
     if (requestFactor < 1) //放大 zoom in
     {
         if (pixels >= CANDLE_MAX_PIXEL_WIDTH) return false;
-        preferFactor =qMax((pixels/CANDLE_MAX_PIXEL_WIDTH),requestFactor);
+        preferFactor =qMin((pixels/CANDLE_MAX_PIXEL_WIDTH),requestFactor);
+        preferFactor =qMax(preferFactor,requestFactor);
     }
     else //缩小 zoom out
     {
@@ -142,7 +143,8 @@ bool QCPCandleChart::canZoom(const double& requestFactor, \
         if (pixels <= CANDLE_MIN_PIXEL_WIDTH && (dataRange <= axisRange)) \
             return false;
 
-        preferFactor =qMin((dataRange/axisRange),requestFactor);
+        preferFactor =qMax((dataRange/axisRange),requestFactor);
+        preferFactor =qMin(preferFactor,requestFactor);
     }
 
     //计算合适的缩放中心,规则为：靠近边界时,则以边界为中心缩放
@@ -198,12 +200,38 @@ bool QCPCandleChart::setKeyAxisAutoFitGrid()
     }
     return true;
 }
-//void QCPCandleChart::drag(double pointDiff)
-//{
-//    double coords = coordsWidthToPixelWidth(pointDiff);
-//    if (!canDragInner(coords)) return;
-//    mKeyAxis->moveRange(-coords);
-//}
+
+bool QCPCandleChart::move(const double& startKey, const int& step, \
+                          double& preferKey, double& preferValue)
+{
+    if (!mKeyAxis) return false;
+    if (mDataContainer.isNull()) return false;
+    if (mDataContainer->isEmpty()) return false;
+    preferKey = startKey;
+
+
+    QCPFinancialDataContainer::const_iterator begin, end;
+    getVisibleDataBounds(begin, end);
+    if (begin == mDataContainer->constEnd()) return false;
+    begin++; end-=2;
+
+    QCPFinancialDataContainer::const_iterator it;
+    it = mDataContainer->findBegin(startKey);
+    it++;
+    it+=step;
+    if (step>0){
+        if (it>=mDataContainer->constEnd()) it = mDataContainer->constEnd()-1;
+        if (it>end) mKeyAxis->moveRange(it->key-startKey);
+    }else if (step<=0){
+        if (it<mDataContainer->constBegin()) it = mDataContainer->constBegin();
+        if (it<begin) mKeyAxis->moveRange(it->key-startKey);
+    }
+    preferKey = it->key;
+    preferValue = it->close;
+
+    setKeyAxisAutoFitGrid();
+    return true;
+}
 
 bool QCPCandleChart::canDrag(const double& preferPixelWidth)
 {
@@ -263,7 +291,7 @@ void QCPCandleChart::adjustValueRange(double marginRatio)
     if (mDataContainer.isNull()) return;
     if (mValueAxis.isNull()) return;
     double minValue = 0, maxValue = 0;
-    getRatioBoundValuesInVisibleRange(minValue, maxValue, marginRatio);
+    getRatioBoundValuesInVisibleRange(minValue, maxValue, 0, marginRatio);
 
     if(mValueAxis->range().lower != minValue || \
             mValueAxis->range().upper != maxValue){
@@ -306,6 +334,8 @@ void QCPCandleChart::initAdjustAll()
     if (mDataContainer->isEmpty()) return;
     if (mKeyAxis.isNull()) return;
 
+    mKeyAxis->rescale();
+    mValueAxis->rescale();
 
     ///首先将每个蜡烛图以合适的像素宽度显示
     double curPixelWidth = coordsWidthToPixelWidth(mWidth);
@@ -331,7 +361,7 @@ void QCPCandleChart::initAdjustAll()
     }else
     {
         //如果数据能铺满屏幕,则靠左显示
-        mKeyAxis->setRange(dataBegin,axisRangeSize+mWidth);
+        mKeyAxis->setRange(dataBegin,dataBegin+axisRangeSize+mWidth);
     }
 
     //设置蜡烛网格自适应
@@ -481,40 +511,37 @@ void QCPCandleChart::getRatioVisibleDataBounds(QCPFinancialDataContainer::const_
 
 //}
 
-bool QCPCandleChart::findFocusKey(const QPointF &pos, double &key, double &value) {
+bool QCPCandleChart::getFocusKeyAndValue(const QPointF &pos, double &key, double &value) {
 
     //    QCPAxis *keyAxis = mKeyAxis.data();
     //    QCPAxis *valueAxis = mValueAxis.data();
-    if (mKeyAxis || mValueAxis) {
+    if (!mKeyAxis || !mValueAxis) {
         qDebug() << Q_FUNC_INFO << "invalid key or value axis";
         return false;
     }
+    pixelsToCoords(pos, key, value);
 
     QCPFinancialDataContainer::const_iterator begin, end; // note that upper is the actual upper point, and not 1 step after the upper point
     getVisibleDataBounds(begin, end);
     if (begin == mDataContainer->constEnd())
     {
-        qDebug()<<Q_FUNC_INFO<<"Can not find fouce key!";
+        //qDebug()<<Q_FUNC_INFO<<"Can not find fouce key!";
         return false;
     }
-
-    //    if (keyAxis->orientation() == Qt::Horizontal)
-    //    {
-
-    double posKey, posValue;
-    pixelsToCoords(pos, posKey, value);
 
     QCPFinancialDataContainer::const_iterator visibleEnd = end;
     visibleEnd--;
     //如果是最左边的数据
-    if (posKey<=begin->key){
-        posKey = begin->key;
+    if (key<=begin->key){
+        key = begin->key;
+        value = begin->close;
         return true;
     }
     if (visibleEnd != mDataContainer->constEnd())
     {
-        if (posKey>=visibleEnd->key){
-            posKey = visibleEnd->key;
+        if (key>=visibleEnd->key){
+            key = visibleEnd->key;
+            value = visibleEnd->close;
             return true;
         }
     }
@@ -523,29 +550,15 @@ bool QCPCandleChart::findFocusKey(const QPointF &pos, double &key, double &value
     for (it = begin; it != end; it++)
     {
         // determine whether pos is in open-close-box:
-        QCPRange boxKeyRange(it->key-mWidth, it->key+mWidth);
-        if (boxKeyRange.contains(posKey)) // is in open-close-box
+        //TODO fix 0.7
+        QCPRange boxKeyRange(it->key-0.7*mWidth, it->key+0.7*mWidth);
+        if (boxKeyRange.contains(key)) // is in open-close-box
         {
             key = it->key;
+            value = it->close;
             return true;
         }
     }
-//    //    }/* else // keyAxis->orientation() == Qt::Vertical
-//    {
-//        for (it = begin; it != end; ++it)
-//        {
-//            // determine whether pos is in open-close-box:
-//            QCPRange boxKeyRange(it->key-mWidth*0.5, it->key+mWidth*0.5);
-//            //QCPRange boxValueRange(it->close, it->open);
-//            double posKey, posValue;
-//            pixelsToCoords(pos, posKey, value);
-//            if (boxKeyRange.contains(posKey)) // is in open-close-box
-//            {
-//                key = it->key;
-//                return true;
-//            }
-//        }
-//    }*/
     return false;
 }
 
@@ -576,7 +589,7 @@ double QCPCandleChart::coordsWidthToPixelWidth(double width)
 {
     if (mKeyAxis.isNull()){
         qDebug() << Q_FUNC_INFO << "invalid key axis";
-        return 0;
+        return width;
     }
     double begin = mKeyAxis->coordToPixel(0);
     double end = mKeyAxis->coordToPixel(width);

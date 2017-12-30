@@ -22,7 +22,8 @@ SOURCES += main.cpp\
     database/dataoutputdialog.cpp \
     database/dataprint.cpp \
     candlesticksview.cpp \
-    qcpcandlechart.cpp
+    qcpcandlechart.cpp \
+    qcpcandleticker.cpp
 
 HEADERS  += qcustomplot.h \
     tradesummaryinfoview.h \
@@ -39,7 +40,8 @@ HEADERS  += qcustomplot.h \
     database/dataoutputdialog.h \
     database/dataprint.h \
     candlesticksview.h \
-    qcpcandlechart.h
+    qcpcandlechart.h \
+    qcpcandleticker.h
 
 FORMS += \
     tradesummaryinfoview.ui \
