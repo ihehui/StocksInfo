@@ -68,7 +68,7 @@ protected:
     void keyPressEvent(QKeyEvent *event);
     void resizeEvent(QResizeEvent *event);
 private:
-    bool m_mouseLeftPressing;
+    bool m_draggingByMouse;
     double m_leftKey, m_focusedKey, m_rightKey; //X轴的左中右坐标
 
     //indicator

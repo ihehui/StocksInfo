@@ -118,9 +118,11 @@ bool QCPCandleChart::canZoom(const double& requestFactor, \
     preferFactor = requestFactor;
     preferCenter = requestCenter;
     if (!mKeyAxis) return false;
+    if (mDataContainer.isNull()) return false;
     if (mDataContainer->isEmpty()) return false;
 
     if (requestFactor == 1) return true;
+    //首先计算合适的缩放系数
     double pixels = coordsWidthToPixelWidth(mWidth);
     if (requestFactor < 1) //放大 zoom in
     {
@@ -142,6 +144,8 @@ bool QCPCandleChart::canZoom(const double& requestFactor, \
 
         preferFactor =qMin((dataRange/axisRange),requestFactor);
     }
+
+    //计算合适的缩放中心,规则为：靠近边界时,则以边界为中心缩放
     if ((qAbs(requestCenter - mKeyAxis->range().lower) \
          - 0.6*CANDLE_SIDE_BLANK*mWidth)<=0){
         preferCenter = mKeyAxis->range().lower;
@@ -171,36 +175,48 @@ bool QCPCandleChart::setKeyAxisAutoFitGrid()
     //如果数据不能铺满plot,自动靠左
     if (dataRange<=axisRangeSize){
         mKeyAxis->setRange(dataBegin, dataBegin+axisRangeSize);
+        return true;
+    }
+    double newEnd = mKeyAxis->range().upper;
+    double newBegin = mKeyAxis->range().lower;
+
+    //如果数据可以铺满plot，自动对齐
+    if (end->key <= mKeyAxis->range().upper){
+        newEnd = end->key + 0.5*CANDLE_SIDE_BLANK*mWidth;
+        mKeyAxis->setRange(newEnd-axisRangeSize,newEnd);
+    }else if (begin->key >= mKeyAxis->range().lower){
+        newBegin = begin->key - 0.5*CANDLE_SIDE_BLANK*mWidth;
+        mKeyAxis->setRange(newBegin, newBegin+axisRangeSize);
     }else{
-        double newEnd = mKeyAxis->range().upper;
-        //如果数据可以铺满plot，自动对齐
-        if (end->key <= mKeyAxis->range().upper){
-            newEnd = end->key + 0.5*CANDLE_SIDE_BLANK*mWidth;
-        }else{
-            getVisibleDataBounds(begin,end);
-            if ((--(--end)) != mDataContainer->constEnd())
-            {
-                //getVisibleDataBounds已经计算过边距,所以此处CANDLE_SIDE_BLANK-1
-                newEnd = (end)->key+0.5*(CANDLE_SIDE_BLANK-1)*mWidth;
-            }
+        getVisibleDataBounds(begin,end);
+        if ((--(--end)) != mDataContainer->constEnd())
+        {
+            //getVisibleDataBounds已经计算过边距,所以此处CANDLE_SIDE_BLANK-1
+            newEnd = (end)->key+0.5*(CANDLE_SIDE_BLANK-1)*mWidth;
         }
         mKeyAxis->setRange(newEnd-axisRangeSize,newEnd);
     }
     return true;
 }
-void QCPCandleChart::drag(double pointDiff)
+//void QCPCandleChart::drag(double pointDiff)
+//{
+//    double coords = coordsWidthToPixelWidth(pointDiff);
+//    if (!canDragInner(coords)) return;
+//    mKeyAxis->moveRange(-coords);
+//}
+
+bool QCPCandleChart::canDrag(const double& preferPixelWidth)
 {
-    double coords = coordsWidthToPixelWidth(pointDiff);
-    if (!canDrag(coords)) return;
-    mKeyAxis->moveRange(-coords);
+    double coords = coordsWidthToPixelWidth(preferPixelWidth);
+    return canDragInner(coords);
 }
 
-bool QCPCandleChart::canDrag(double& preferWidth)
+bool QCPCandleChart::canDragInner(double& preferCoordsWidth)
 {
     if (!mKeyAxis) return true;
     if (mDataContainer.isNull()) return true;
     if (mDataContainer->isEmpty()) return true;
-    if (preferWidth<0){
+    if (preferCoordsWidth<0){
         QCPFinancialDataContainer::const_iterator end = mDataContainer->constEnd();
         --end;
         double dataEnd = end->key+0.5*mWidth*CANDLE_SIDE_BLANK;
@@ -208,16 +224,16 @@ bool QCPCandleChart::canDrag(double& preferWidth)
         if (dataEnd <= rangeUpper) return false;
 
         double diff = -(dataEnd - rangeUpper);
-        preferWidth = qMax(diff, preferWidth);
+        preferCoordsWidth = qMax(diff, preferCoordsWidth);
         return true;
-    }else if (preferWidth>0){
+    }else if (preferCoordsWidth>0){
         QCPFinancialDataContainer::const_iterator begin = mDataContainer->constBegin();
         double dataBegin = begin->key-0.5*mWidth*CANDLE_SIDE_BLANK;
         double rangeLower = mKeyAxis->range().lower;
         if (dataBegin >= rangeLower) return false;
 
         double diff = -(dataBegin - rangeLower);
-        preferWidth = qMin(diff, preferWidth);
+        preferCoordsWidth = qMin(diff, preferCoordsWidth);
         return true;
     }
     return false;
@@ -230,6 +246,7 @@ bool QCPCandleChart::zoom(const double& factor, const double& center)
     if (!canZoom(factor, preferFactor, center, preferCenter)) return false;
     mKeyAxis->scaleRange(preferFactor, preferCenter);
 
+    ///必须和自适应蜡烛网格配合,否则效果不对
     setKeyAxisAutoFitGrid();
 
     return true;
@@ -260,6 +277,7 @@ void QCPCandleChart::adjustKeyRangeOnResize(const double& factor)
     if (factor == 1.0 || factor <= 0) return;
     if (mDataContainer.isNull()) return;
     if (mKeyAxis.isNull()) return;
+    ///找到数据边界和坐标边界
     QCPFinancialDataContainer::const_iterator begin, end;
     begin = mDataContainer->constBegin();
     end = mDataContainer->constEnd();
@@ -271,23 +289,25 @@ void QCPCandleChart::adjustKeyRangeOnResize(const double& factor)
     double axisRangeSize = mKeyAxis->range().size();
     double newAxisRangeSize = axisRangeSize*factor;
 
+    ///找到合适的新坐标边界点
     double lower = dataBegin;
     if (newAxisRangeSize < dataRangeSize){
-        //        if (dataEnd>mKeyAxis->range().upper){
         lower = qMax(dataBegin, mKeyAxis->range().upper - newAxisRangeSize);
-        //        }else{
-        //            lower = mKeyAxis->range().lower;
-        //        }
     }
     mKeyAxis->setRange(lower,lower+newAxisRangeSize);
 
+    ///必须设置自动适配蜡烛网格,否则会有一些问题
     setKeyAxisAutoFitGrid();
 }
 
 void QCPCandleChart::initAdjustAll()
 {
     if (mDataContainer.isNull()) return;
+    if (mDataContainer->isEmpty()) return;
     if (mKeyAxis.isNull()) return;
+
+
+    ///首先将每个蜡烛图以合适的像素宽度显示
     double curPixelWidth = coordsWidthToPixelWidth(mWidth);
     if (curPixelWidth == 0) return;
     double factor = curPixelWidth/CANDLE_PREFER_PIXEL_WIDTH;
@@ -303,29 +323,34 @@ void QCPCandleChart::initAdjustAll()
     double dataEnd = end->key + mWidth*0.5*CANDLE_SIDE_BLANK;
     double dataRangeSize = dataEnd - dataBegin;
     double axisRangeSize = mKeyAxis->range().size();
+    ///如果数据能铺满屏幕,则靠右显示
     if(dataRangeSize>=axisRangeSize)
     {
         mKeyAxis->setRange(dataEnd-axisRangeSize-mWidth*CANDLE_SIDE_BLANK,\
                            dataEnd);
     }else
     {
+        //如果数据能铺满屏幕,则靠左显示
         mKeyAxis->setRange(dataBegin,axisRangeSize+mWidth);
     }
 
+    //设置蜡烛网格自适应
     setKeyAxisAutoFitGrid();
 
     //自适应value高度
     adjustValueRange();
 }
 
-void QCPCandleChart::getRatioBoundValuesInVisibleRange(double &minValue, double &maxValue, double marginRatio) const
+void QCPCandleChart::getRatioBoundValuesInVisibleRange\
+(double &minValue, double &maxValue,
+ double marginRatioH, double marginRatioV) const
 {
     double minYValue = std::numeric_limits<double>::max();
     double maxYValue = std::numeric_limits<double>::min();
 
     // get ratio visible data range:
     QCPFinancialDataContainer::const_iterator lower, upper; // note that upper is the actual upper point, and not 1 step after the upper point
-    getRatioVisibleDataBounds(lower, upper, 1-marginRatio);
+    getRatioVisibleDataBounds(lower, upper, 1-marginRatioH);
     if (lower == mDataContainer->constEnd()) return ;
 
     QCPFinancialDataContainer::const_iterator it;
@@ -346,7 +371,7 @@ void QCPCandleChart::getRatioBoundValuesInVisibleRange(double &minValue, double 
 
     double curRange = mValueAxis->range().upper - \
             mValueAxis->range().lower;
-    double margins = marginRatio * curRange;
+    double margins = marginRatioV * curRange;
     minValue = minYValue - margins;
     maxValue = maxYValue + margins;
 }

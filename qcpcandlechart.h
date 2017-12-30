@@ -21,31 +21,35 @@ public:
 
     bool findFocusKey(const QPointF &pos, double &key, double &value);
 
+    bool setKeyAxisAutoFitGrid();
+
 private:
     bool canZoom(const double& requestFactor, double& preferFactor, \
                  const double& requestCenter, double& preferCenter);
-    bool setKeyAxisAutoFitGrid();
-
-    double pixelWidthToCoordsWidth(double width);
-    double coordsWidthToPixelWidth(double width);
-    bool coordsToPoint(const double &key, const double &value, QPointF &pos);
 public:
-    void drag(double pointDiff);
+    bool canDrag(const double& preferPixelWidth);
 private:
-    bool canDrag(double& preferWidth);
+//    void drag(double pointDiff);
+    bool canDragInner(double& preferCoordsWidth);
 private slots:
     void onKeyAxisRangeChanged(const QCPRange& range);
 protected:
     virtual void draw(QCPPainter *painter) Q_DECL_OVERRIDE;
     virtual void drawIndicatorText(QCPPainter *painter);
 private:
-    void getRatioBoundValuesInVisibleRange(double &minValue, double &maxValue, double marginRatio = 0.1) const;
+    void getRatioBoundValuesInVisibleRange\
+    (double &minValue, double &maxValue,
+     double marginRatioH = 0.0, double marginRatioV = 0.1) const;
     void getRatioVisibleDataBounds(QCPFinancialDataContainer::const_iterator &begin, \
-                                                   QCPFinancialDataContainer::const_iterator &end, \
-                                                   double ratio = 0.9) const;
+                                   QCPFinancialDataContainer::const_iterator &end, \
+                                   double ratio = 0.9) const;
 
-//    void getBoundValuesInVisibleRange(double &minValue, double &maxValue, uint &itemCount, double *leftKey = 0, double *rightkey = 0) const;
-//    void getBoundValuesInVisibleRange(QCPRange &valueRange, QCPRange &leftBoxRange, QCPRange &rightBoxRange) const;
+    double pixelWidthToCoordsWidth(double width);
+    double coordsWidthToPixelWidth(double width);
+    bool coordsToPoint(const double &key, const double &value, QPointF &pos);
+
+    //    void getBoundValuesInVisibleRange(double &minValue, double &maxValue, uint &itemCount, double *leftKey = 0, double *rightkey = 0) const;
+    //    void getBoundValuesInVisibleRange(QCPRange &valueRange, QCPRange &leftBoxRange, QCPRange &rightBoxRange) const;
 };
 
 #endif // QCPCANDLECHART_H

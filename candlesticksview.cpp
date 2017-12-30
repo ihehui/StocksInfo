@@ -40,7 +40,7 @@ CandlesticksView::CandlesticksView(QWidget *parent)
     m_volumeNeg = 0;
     m_vyAxis = 0;
 
-    m_mouseLeftPressing = false;
+    m_draggingByMouse = false;
     m_leftKey = 0;
     m_focusedKey = 0;
     m_rightKey = 0;
@@ -60,6 +60,8 @@ void CandlesticksView::initCandlesticks(){
     this->plotLayout()->setMargins(MARGINS_PLOT);
 
     this->axisRect()->layout()->setMargins(MARGINS_AXISRECT_LAYOUT);
+    this->setInteractions(QCP::iRangeDrag);
+    this->axisRect()->setRangeDrag(Qt::Horizontal);
 
     //坐标轴
     connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
@@ -91,6 +93,7 @@ void CandlesticksView::initCandlesticks(){
 
     //柱状图-成交量
     m_vAxisRect = new QCPAxisRect(this);
+    m_vAxisRect->setRangeDrag(Qt::Horizontal);
     m_vAxisRect->setMaximumSize(QSize(QWIDGETSIZE_MAX, 100));
     //volumeAxisRect->setAutoMargins(QCP::msLeft|QCP::msRight|QCP::msBottom);
     m_vAxisRect->setMargins(MARGINS_PLOT);
@@ -233,30 +236,42 @@ void CandlesticksView::mousePressEvent(QMouseEvent *event)
 {
     QCustomPlot::mousePressEvent(event);
     if (event->button() == Qt::LeftButton){
-        m_mouseLeftPressing = true;
+        m_draggingByMouse = true;
     }
 }
 void CandlesticksView::mouseReleaseEvent(QMouseEvent *event)
 {
-    qDebug() << "CandlesticksView mouseReleaseEvent";
+    //qDebug() << "CandlesticksView mouseReleaseEvent";
     QCustomPlot::mouseReleaseEvent(event);
-    m_mouseLeftPressing = false;
+    m_draggingByMouse = false;
 }
 void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
-    QCustomPlot::mouseMoveEvent(event);
     QPoint pos = event->pos();
     static QPoint lastPos(pos);
+
+    if (isEmpty()){
+        lastPos = pos;
+        QCustomPlot::mouseMoveEvent(event);
+        return;
+    }
+    if (m_draggingByMouse)
+    {
+        if (m_candleChart->canDrag(pos.x()-lastPos.x())){
+            QCustomPlot::mouseMoveEvent(event);
+            m_candleChart->setKeyAxisAutoFitGrid();
+            replot();
+        }else{
+            m_draggingByMouse = false;
+        }
+    }
+
+    lastPos = pos;
+
     //    double key = getFocusKey(pos);
     //TODO
     //    updateInfoView(key);
     //    updateCrossCurvePoint(getFocusPoint(key));
 
-    if (isEmpty()) return;
-    if (m_mouseLeftPressing)
-    {
-        m_candleChart->drag(pos.x()-lastPos.x());
-    }
-    lastPos = pos;
 }
 
 void CandlesticksView::wheelEvent(QWheelEvent* event){
