@@ -2,7 +2,7 @@
 #define STOCK_H
 
 #include <QObject>
-
+#include <QMutex>
 #include "common.h"
 
 
