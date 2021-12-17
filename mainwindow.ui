@@ -325,7 +325,7 @@
               </widget>
               <widget class="QStackedWidget" name="stackedWidgetExtraInfo">
                <property name="currentIndex">
-                <number>0</number>
+                <number>1</number>
                </property>
                <widget class="QWidget" name="page_3">
                 <layout class="QVBoxLayout" name="verticalLayout_2"/>
@@ -758,13 +758,14 @@
      <x>0</x>
      <y>0</y>
      <width>941</width>
-     <height>23</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_System">
     <property name="title">
      <string>&amp;System</string>
     </property>
+    <addaction name="actionback"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menu_About">
@@ -785,6 +786,11 @@
   <action name="actionAbout">
    <property name="text">
     <string>&amp;About</string>
+   </property>
+  </action>
+  <action name="actionback">
+   <property name="text">
+    <string>back</string>
    </property>
   </action>
  </widget>

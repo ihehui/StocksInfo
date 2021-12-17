@@ -9,6 +9,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     ui->stackedWidgetExtraInfo->hide();
 
+    connect(ui->menu_System, SIGNAL(click()), this, SLOT(switchPage()), Qt::QueuedConnection);
+
     connect(ui->tableViewStocks, SIGNAL(stockActivated(Stock*)), this, SLOT(stockActivated(Stock*)));
     connect(ui->tableViewStocks, SIGNAL(stockSelected(Stock*)), this, SLOT(stockSelected(Stock*)));
 
@@ -64,7 +66,15 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent *event){
     event->accept();
 }
-
+void MainWindow::keyPressEvent(QKeyEvent* e)
+{
+    switch (e->key())
+    {
+      case Qt::Key_Enter:
+        switchPage();
+        break;
+    }
+}
 void MainWindow::updateRealTimeQuoteData(const RealTimeQuoteData &data){
 
     Stock *stock = m_dataManager->stock(data.code);
@@ -209,3 +219,21 @@ void MainWindow::on_actionAbout_triggered(){
 
 
 
+
+void MainWindow::on_actionback_triggered()
+{
+    switchPage();
+    /*
+    int nCount = ui->stackedWidget->count();
+    int nIndex = ui->stackedWidget->currentIndex();
+
+    // 获取下一个需要显示的页面索引
+    ++nIndex;
+
+    // 当需要显示的页面索引大于等于总页面时，切换至首页
+    if (nIndex >= nCount)
+        nIndex = 0;
+
+    ui->stackedWidget->setCurrentIndex(nIndex);
+    */
+}

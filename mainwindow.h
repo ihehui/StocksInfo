@@ -28,6 +28,8 @@ public:
 protected:
     void closeEvent(QCloseEvent *event);
 
+private slots:
+    void keyPressEvent(QKeyEvent* event);
 
  public slots:
     void updateRealTimeQuoteData(const RealTimeQuoteData &data);
@@ -47,6 +49,8 @@ private slots:
     void on_actionAbout_triggered();
 
 
+
+    void on_actionback_triggered();
 
 private:
     Ui::MainWindow *ui;
