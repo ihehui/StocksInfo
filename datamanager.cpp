@@ -1,4 +1,4 @@
-#include "datamanager.h"
+﻿#include "datamanager.h"
 
 #include "qcustomplot.h"
 #include "stock.h"
@@ -156,7 +156,7 @@ bool DataManager::readHistoricalTradeDataFile(const QString &fileName){
     qDebug()<<title;
 
     Stock *stock = 0;
-    QMap<double, QCPFinancialData> *ohlcDataMap = 0;
+    QSharedPointer<QCPFinancialDataContainer> ohlcDataMap;
     QMap<double, TradeExtraData>  *tradeExtraDataMap = 0;
     QVector<double> *futuresDeliveryDates = 0;
 
@@ -177,7 +177,7 @@ bool DataManager::readHistoricalTradeDataFile(const QString &fileName){
                 m_allStocks->insert(code, stock);
             }
 
-            ohlcDataMap = stock->ohlcDataMap();
+            ohlcDataMap = stock->ohlcDataContainer();
             tradeExtraDataMap = stock->tradeExtraDataMap();
             futuresDeliveryDates = stock->futuresDeliveryDates();
         }
@@ -214,7 +214,8 @@ bool DataManager::readHistoricalTradeDataFile(const QString &fileName){
         double turnover = dataList.at(12).toDouble();
         double exchangeRatio = dataList.at(10).toDouble();
 
-        ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
+        ohlcDataMap->add(QCPFinancialData(index, open, high, low, close));
+        //ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
         tradeExtraDataMap->insert(index, TradeExtraData(time_t, preClose, volume, turnover, exchangeRatio));
 
         //数据文件为倒序。不可使用日期做KEY，日期有空档。
@@ -639,7 +640,7 @@ bool DataManager::loadHistoricalTradeData(Stock * stock){
         return false;
     }
 
-    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
+    QSharedPointer<QCPFinancialDataContainer>  ohlcDataMap = stock->ohlcDataContainer();
     QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
 
     uint index = (std::numeric_limits<uint>::max)();
@@ -656,7 +657,7 @@ bool DataManager::loadHistoricalTradeData(Stock * stock){
         double exchangeRatio = query.value(idx++).toDouble();
 
 
-        ohlcDataMap->insert(index, QCPFinancialData(index, open, high, low, close));
+        ohlcDataMap->add(QCPFinancialData(index, open, high, low, close));
         tradeExtraDataMap->insert(index, TradeExtraData(tradeDate, preClose, volume, turnover, exchangeRatio));
 
         index--;
@@ -692,22 +693,23 @@ bool DataManager::saveHistoricalTradeData(Stock * stock){
         return false;
     }
 
-    QMap<double, QCPFinancialData> *ohlcDataMap = stock->ohlcDataMap();
+    QSharedPointer<QCPFinancialDataContainer> ohlcDataMap = stock->ohlcDataContainer();
     QMap<double, TradeExtraData>  *tradeExtraDataMap = stock->tradeExtraDataMap();
 
-    foreach (double index, ohlcDataMap->keys()) {
-        QCPFinancialData ohlcData = ohlcDataMap->value(index);
-        TradeExtraData tradeExtraDat = tradeExtraDataMap->value(index);
+    QCPFinancialDataContainer::const_iterator it = ohlcDataMap->constBegin();
+    while (it != ohlcDataMap->constEnd())
+    {
+        TradeExtraData tradeExtraDat = tradeExtraDataMap->value(it->key);
         QDateTime dateTime = QDateTime::fromTime_t(tradeExtraDat.time);
         dateTime.setTime(QTime(15, 0, 0));
         query.prepare("INSERT INTO DailyTradeinfo(Code, TradeDate, Open, High, Low, Close, PreClose, Volume, Turnover, ExchangeRatio)"
                       "VALUES(:Code, :TradeDate, :Open, :High, :Low, :Close, :PreClose, :Volume, :Turnover, :ExchangeRatio); ");
         query.bindValue(":Code", stock->code());
         query.bindValue(":TradeDate", dateTime.toString("yyyy-MM-dd hh:mm:ss"));
-        query.bindValue(":Open", ohlcData.open);
-        query.bindValue(":High", ohlcData.high);
-        query.bindValue(":Low", ohlcData.low);
-        query.bindValue(":Close", ohlcData.close);
+        query.bindValue(":Open", it->open);
+        query.bindValue(":High", it->high);
+        query.bindValue(":Low", it->low);
+        query.bindValue(":Close", it->close);
         query.bindValue(":PreClose", tradeExtraDat.preClose);
         query.bindValue(":Volume", tradeExtraDat.volume);
         query.bindValue(":Turnover", tradeExtraDat.turnover);
@@ -715,7 +717,29 @@ bool DataManager::saveHistoricalTradeData(Stock * stock){
         query.exec();
 
         qApp->processEvents();
+        it++;
     }
+//    foreach (double index, ohlcDataMap->keys()) {
+//        QCPFinancialData ohlcData = ohlcDataMap->value(index);
+//        TradeExtraData tradeExtraDat = tradeExtraDataMap->value(index);
+//        QDateTime dateTime = QDateTime::fromTime_t(tradeExtraDat.time);
+//        dateTime.setTime(QTime(15, 0, 0));
+//        query.prepare("INSERT INTO DailyTradeinfo(Code, TradeDate, Open, High, Low, Close, PreClose, Volume, Turnover, ExchangeRatio)"
+//                      "VALUES(:Code, :TradeDate, :Open, :High, :Low, :Close, :PreClose, :Volume, :Turnover, :ExchangeRatio); ");
+//        query.bindValue(":Code", stock->code());
+//        query.bindValue(":TradeDate", dateTime.toString("yyyy-MM-dd hh:mm:ss"));
+//        query.bindValue(":Open", ohlcData.open);
+//        query.bindValue(":High", ohlcData.high);
+//        query.bindValue(":Low", ohlcData.low);
+//        query.bindValue(":Close", ohlcData.close);
+//        query.bindValue(":PreClose", tradeExtraDat.preClose);
+//        query.bindValue(":Volume", tradeExtraDat.volume);
+//        query.bindValue(":Turnover", tradeExtraDat.turnover);
+//        query.bindValue(":ExchangeRatio", tradeExtraDat.exchangeRatio);
+//        query.exec();
+
+//        qApp->processEvents();
+//    }
     statement = "Commit Transaction;";
     if(!query.exec(statement)){
         QSqlError error = query.lastError();

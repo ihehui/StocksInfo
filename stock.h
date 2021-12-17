@@ -1,10 +1,11 @@
-#ifndef STOCK_H
+﻿#ifndef STOCK_H
 #define STOCK_H
 
 #include <QObject>
-
+#include <QMutex>
+#include <QSharedPointer>
 #include "common.h"
-
+#include "qcustomplot.h"
 
 class QCPFinancialData;
 
@@ -78,7 +79,7 @@ public:
     RealTimeStatisticsData * realTimeStatisticsData();
 
     PeriodType periodType() const;
-    QMap<double, QCPFinancialData> * ohlcDataMap();
+    QSharedPointer<QCPFinancialDataContainer> ohlcDataContainer();
     QMap<double, TradeExtraData> * tradeExtraDataMap();
     QVector<double> * futuresDeliveryDates(); //TODO:optimize
 
@@ -96,7 +97,8 @@ private:
     RealTimeStatisticsData *m_realTimeStatisticsData;
 
     PeriodType m_periodType; //数据周期类型
-    QMap<double, QCPFinancialData> *m_ohlcData; //基本交易数据
+    QSharedPointer<QCPFinancialDataContainer>  m_ohlcData;
+    //QMap<double, QCPFinancialData> *m_ohlcData; //基本交易数据
     QMap<double, TradeExtraData> *m_tradeExtraData; //交易数据
     QVector<double> *m_futuresDeliveryDates; //index. Futures delivery,期指交割日，忽略放假顺延
 

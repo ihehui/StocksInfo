@@ -1,4 +1,4 @@
-#include "tradesummaryinfoview.h"
+﻿#include "tradesummaryinfoview.h"
 #include "ui_tradesummaryinfoview.h"
 
 #include <QDateTime>
@@ -12,6 +12,7 @@ TradeSummaryInfoView::TradeSummaryInfoView(QWidget *parent, Qt::WindowFlags f) :
     ui(new Ui::TradeSummaryInfoView)
 {
     ui->setupUi(this);
+    setWindowFlags(windowFlags()|Qt::Popup | Qt::FramelessWindowHint);
 }
 
 TradeSummaryInfoView::~TradeSummaryInfoView()

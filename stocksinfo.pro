@@ -8,7 +8,6 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
     qcustomplot.cpp \
-    candlesticksview.cpp \
     tradesummaryinfoview.cpp \
     common.cpp \
     datamanager.cpp \
@@ -21,10 +20,12 @@ SOURCES += main.cpp\
     database/databaseconnecterdialog.cpp \
     database/databaseutility.cpp \
     database/dataoutputdialog.cpp \
-    database/dataprint.cpp
+    database/dataprint.cpp \
+    candlesticksview.cpp \
+    qcpcandlechart.cpp \
+    qcpcandleticker.cpp
 
 HEADERS  += qcustomplot.h \
-    candlesticksview.h \
     tradesummaryinfoview.h \
     common.h \
     datamanager.h \
@@ -37,7 +38,10 @@ HEADERS  += qcustomplot.h \
     database/databaseconnecterdialog.h \
     database/databaseutility.h \
     database/dataoutputdialog.h \
-    database/dataprint.h
+    database/dataprint.h \
+    candlesticksview.h \
+    qcpcandlechart.h \
+    qcpcandleticker.h
 
 FORMS += \
     tradesummaryinfoview.ui \

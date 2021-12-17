@@ -1,6 +1,27 @@
-#include "candlesticksview.h"
+﻿#include "candlesticksview.h"
 #include "stock.h"
+#include <QColor>
+const QColor TRANSPARENT_QCOLOR(0,0,0,0);
 
+const QColor CANDLE_POSITIVE_QCOLOR(15,195,81);
+const QColor CANDLE_NEGATIVE_QCOLOR(255,61,61);
+
+const QColor CANDLE_BACKGROUND_QCOLOR(40,44,48);
+const QColor CANDLE_GRIDLINE_QCOLOR(44,50,54);
+const QColor CANDLE_TEXT_QCOLOR_WHITE(187,193,199);
+const QColor CANDLE_CROSSHAIR_QCOLOR(82,98,113);
+
+const QMargins MARGINS_PLOT(0,0,0,0);
+const QMargins MARGINS_AXISRECT_LAYOUT(30,0,30,16);
+
+const double CANDLE_BOX_WIDTH = 0.8;
+const int CANDLE_BASE_PENWIDTH = 1;
+const double CANDLE_BASE_MARGIN_RATIO = 0.1;
+const double CANDLE_BASE_ZOOM_RATIO = 0.2;
+
+const QPen CANDLE_TICKLABEL_PEN(CANDLE_TEXT_QCOLOR_WHITE, CANDLE_BASE_PENWIDTH, Qt::SolidLine);
+const QPen CANDLE_GRIDLINE_PEN(CANDLE_GRIDLINE_QCOLOR, CANDLE_BASE_PENWIDTH, Qt::SolidLine);
+const QPen CANDLE_CROSSHAIR_PEN(CANDLE_CROSSHAIR_QCOLOR, CANDLE_BASE_PENWIDTH, Qt::DashLine);
 
 CandlesticksView::CandlesticksView(QWidget *parent)
     : QCustomPlot(parent)
@@ -12,551 +33,461 @@ CandlesticksView::CandlesticksView(QWidget *parent)
     m_stockCode = "";
     m_stockName = "";
     m_stockCodeExpected = "";
-
-    m_ohlcDataMap = 0;
+    m_ohlcData = 0;
     m_tradeExtraDataMap = 0;
 
-    m_plotTitle = 0;
-    m_candlesticks = 0;
-    m_yAxis = 0;
-    m_horizontalLine = 0;
-    m_verticalLine = 0;
-
-    volumeAxisRect = 0;
+    m_candleChart = 0;
+    m_vAxisRect = 0;
     m_volumePos = 0;
     m_volumeNeg = 0;
-    m_volumeLeftAxis = 0;
+    m_vxAxis = 0;
+    m_vyAxis = 0;
 
-    m_infoView = 0;
+    m_draggingByMouse = false;
     m_leftKey = 0;
     m_focusedKey = 0;
     m_rightKey = 0;
 
+    m_tracerVisible = true;
+    m_tracerCandle = 0;
+    m_tracerVolume = 0;
 
-    setInteractions(/*QCP::iRangeDrag | QCP::iRangeZoom |*/ QCP::iSelectAxes |
-                    QCP::iSelectLegend | QCP::iSelectPlottables);
-
-
-    //鼠标事件
-    //connect(this, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(slotMouseDoubleClick(QMouseEvent*)));
-    //connect(this, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(slotMousePress(QMouseEvent*)));
-    //connect(this, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(slotMouseMove(QMouseEvent*)));
-    //connect(this, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(slotMouseRelease(QMouseEvent*)));
-    //connect(this, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(slotMouseWheel(QWheelEvent*)));
-
-
-    //坐标轴
-    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), xAxis2, SLOT(setRange(QCPRange)));
-    connect(yAxis, SIGNAL(rangeChanged(QCPRange)), yAxis2, SLOT(setRange(QCPRange)));
-    //connect(yAxis2, SIGNAL(rangeChanged(QCPRange)), yAxis, SLOT(setRange(QCPRange)));
-    connect(xAxis, SIGNAL(rangeChanged(const QCPRange &, const QCPRange &)), this, SLOT(setAxisRange()));
-    //connect(xAxis, SIGNAL(rangeChanged(const QCPRange &, const QCPRange &)), this, SLOT(setAxisRange2(const QCPRange &, const QCPRange &)));
-
-
-    //右键
-    setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(this, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextMenuRequest(QPoint)));
-
-    drawCandlesticks();
-
+    initCandlesticks();
+    adjustAllAndReplot();
 }
 
-CandlesticksView::~CandlesticksView(){
-    delete m_infoView;
+void CandlesticksView::initCandlesticks(){
+
+    //设置为全都不抗锯齿,否则画出的图有点模糊,不够犀利
+    this->setNotAntialiasedElements(QCP::aeAll);
+    this->setBackground(QBrush(CANDLE_BACKGROUND_QCOLOR));
+    this->setAutoAddPlottableToLegend(false);
+    this->plotLayout()->setMargins(MARGINS_PLOT);
+
+    this->axisRect()->layout()->setMargins(MARGINS_AXISRECT_LAYOUT);
+    this->setInteractions(QCP::iRangeDrag);
+    this->axisRect()->setRangeDrag(Qt::Horizontal);
+
+    //ticker
+    QSharedPointer<QCPCandleTickerNum> customTicker(new QCPCandleTickerNum());
+    yAxis->setTicker(customTicker);
+    yAxis2->setTicker(customTicker);
+
+
+    //坐标轴联动
+    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
+            xAxis2, SLOT(setRange(QCPRange)));
+    connect(yAxis, SIGNAL(rangeChanged(QCPRange)),
+            yAxis2, SLOT(setRange(QCPRange)));
+
+    //创建蜡烛图
+    m_candleChart = new QCPCandleChart(xAxis, yAxis);
+    m_candleChart->setName("Candlestick");
+    m_candleChart->setChartStyle(QCPFinancial::csCandlestick);
+    m_candleChart->setWidth(CANDLE_BOX_WIDTH);
+    m_candleChart->setWidthType(QCPFinancial::wtPlotCoords);
+    m_candleChart->setTwoColored(true);
+    m_candleChart->setBrush(Qt::NoBrush);
+    m_candleChart->setBrushPositive(Qt::NoBrush);
+    m_candleChart->setPenPositive(QPen(CANDLE_POSITIVE_QCOLOR));
+    m_candleChart->setBrushNegative(CANDLE_NEGATIVE_QCOLOR);
+    m_candleChart->setPenNegative(QPen(CANDLE_NEGATIVE_QCOLOR));
+    m_candleChart->setSelectable(QCP::stNone);
+
+    //设置蜡烛图坐标轴
+    xAxis->setVisible(false);
+    initTickAndGridStyle(yAxis);
+    initTickAndGridStyle(yAxis2);
+
+    //柱状图-成交量
+    m_vAxisRect = new QCPAxisRect(this);
+    m_vAxisRect->setRangeDrag(Qt::Horizontal);
+    m_vAxisRect->setMaximumSize(QSize(QWIDGETSIZE_MAX, 100));
+    m_vAxisRect->setMargins(MARGINS_PLOT);
+    m_vAxisRect->axis(QCPAxis::atBottom)->setLayer("axes");
+    m_vAxisRect->axis(QCPAxis::atBottom)->grid()->setLayer("grid");
+
+    //设置成交量图坐标轴
+    QCPAxis* vxAxis = m_vAxisRect->axis(QCPAxis::atBottom);
+    QCPAxis* vyAxis = m_vAxisRect->axis(QCPAxis::atLeft);
+    QCPAxis* vyAxis2 = m_vAxisRect->axis(QCPAxis::atRight);
+    initTickAndGridStyle(vxAxis);
+    initTickAndGridStyle(vyAxis);
+    initTickAndGridStyle(vyAxis2);
+
+    m_vxAxis = vxAxis;
+    m_vyAxis = vyAxis;
+
+    //Tickers
+    //ticker
+    QSharedPointer<QCPCandleTickerNum> customTickerV(new QCPCandleTickerNum());
+    vyAxis->setTicker(customTickerV);
+    vyAxis2->setTicker(customTickerV);
+
+
+    // configure axes of both main and bottom axis rect:
+    QSharedPointer<QCPCandleTickerDateTime> dateTimeTicker(new QCPCandleTickerDateTime);
+    dateTimeTicker->setDateTimeSpec(Qt::UTC);
+    dateTimeTicker->setDateTimeFormat("yyyy/MM/dd HH:mm:ss");
+    vxAxis->setTicker(dateTimeTicker);
+
+    //设置成交量图格式
+    m_volumePos = new QCPBars(vxAxis, vyAxis);
+    m_volumeNeg = new QCPBars(vxAxis, vyAxis);
+    m_volumePos->setWidth(CANDLE_BOX_WIDTH);
+    m_volumePos->setPen(Qt::NoPen);
+    m_volumePos->setBrush(CANDLE_POSITIVE_QCOLOR);
+    m_volumeNeg->setWidth(CANDLE_BOX_WIDTH);
+    m_volumeNeg->setPen(Qt::NoPen);
+    m_volumeNeg->setBrush(CANDLE_NEGATIVE_QCOLOR);
+
+    //设置整体布局
+    plotLayout()->insertRow(plotLayout()->rowCount());
+    plotLayout()->addElement(plotLayout()->rowCount()-1, 0, m_vAxisRect);
+    plotLayout()->setRowStretchFactor(0,4);
+    plotLayout()->setRowStretchFactor(1,1);
+
+    // make axis rects' left side line up:
+    QCPMarginGroup *group = new QCPMarginGroup(this);
+    axisRect()->setMarginGroup(QCP::msLeft|QCP::msRight, group);
+    m_vAxisRect->setMarginGroup(QCP::msLeft|QCP::msRight, group);
+
+    // interconnect x axis ranges of main and bottom axis rects:
+    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
+            vxAxis, SLOT(setRange(QCPRange)));
+    connect(vxAxis, SIGNAL(rangeChanged(QCPRange)), \
+            xAxis, SLOT(setRange(QCPRange)));
+    connect(vxAxis, SIGNAL(rangeChanged(QCPRange)), \
+            m_vAxisRect->axis(QCPAxis::atTop), SLOT(setRange(QCPRange)));
+    connect(vyAxis, SIGNAL(rangeChanged(QCPRange)), \
+            vyAxis2, SLOT(setRange(QCPRange)));
+
+    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), \
+            this, SLOT(adjustVolumeYRange()));
+
+
+    //调整大小
+    rescaleAxes();
+
+    //创建十字光标
+    m_tracerCandle = new QCPItemTracer(this);
+    m_tracerCandle->position->setAxisRect(this->axisRect());
+    m_tracerCandle->position->setAxes(xAxis, yAxis);   ///<very important
+    m_tracerCandle->setClipAxisRect(this->axisRect());   ///<very important
+    initTracer(m_tracerCandle);
+
+    m_tracerVolume = new QCPItemTracer(this);
+    m_tracerVolume->position->setAxisRect(m_vAxisRect);
+    m_tracerVolume->position->setAxes(m_vxAxis, m_vyAxis);   ///<very important
+    m_tracerVolume->setClipAxisRect(m_vAxisRect);   ///<very important
+    initTracer(m_tracerVolume);
+
+    //设置坐标显示格式
+    yAxis->setNumberPrecision(7);
+    yAxis2->setNumberPrecision(7);
+    m_vyAxis->setNumberPrecision(7);
+    m_vAxisRect->axis(QCPAxis::atRight)->setNumberPrecision(7);
+//    yAxis->setNumberFormat("f");
+//    yAxis2->setNumberFormat("f");
+//    m_vyAxis->setNumberFormat("f");
+//    m_vAxisRect->axis(QCPAxis::atRight)->setNumberFormat("f");
+
+    //创建指示文字
+    initTracerText();
+}
+
+void CandlesticksView::initTracer(QCPItemTracer* tracer)
+{
+    if (!tracer) return;
+//    tracer->setInterpolating(true);
+    tracer->setStyle(QCPItemTracer::tsCrosshair);
+    tracer->setVisible(m_tracerVisible);
+    tracer->setPen(CANDLE_CROSSHAIR_PEN);
+    tracer->position->setType(QCPItemPosition::ptPlotCoords);
+}
+
+void CandlesticksView::initTracerText()
+{
+    //创建光标提示
+
+//    QCPItemText* m_leftLabel, *m_rightLabel;
+//    QCPItemText* m_leftVLabel, *m_rightVLabel, *m_bottomLabel;
+
+    m_leftTracerLabel = new QCPItemText(this);
+    QCPLayer* legnedLayer = this->layer("legend");
+    ///move text label to legend layer so that it can plot on top of axis rect
+    if (legnedLayer) m_leftTracerLabel->setLayer(legnedLayer);
+    m_leftTracerLabel->setClipAxisRect(this->axisRect());
+    m_leftTracerLabel->setClipToAxisRect(false);      ///< make visible out of axis rect
+
+    m_leftTracerLabel->setPositionAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_leftTracerLabel->position->setTypeX(QCPItemPosition::ptAxisRectRatio);
+    m_leftTracerLabel->position->setTypeY(QCPItemPosition::ptPlotCoords);
+    m_leftTracerLabel->position->setParentAnchorY(m_tracerCandle->position);   ///< y direction anchor to tracer
+    m_leftTracerLabel->position->setCoords(0,0);
+
+    m_leftTracerLabel->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    ///make left padding real big to get nice visual effect
+    m_leftTracerLabel->setPadding(QMargins(100,2,yAxis->tickLabelPadding(),2));
+
+
+    m_leftTracerLabel->setColor(CANDLE_TEXT_QCOLOR_WHITE);
+    m_leftTracerLabel->setBrush(QBrush(CANDLE_CROSSHAIR_QCOLOR));
+    m_leftTracerLabel->setText("");
+
+    m_rightTracerLabel = new QCPItemText(this);
+    ///move text label to legend layer so that it can plot on top of axis rect
+    if (legnedLayer) m_rightTracerLabel->setLayer(legnedLayer);
+    m_rightTracerLabel->setClipAxisRect(this->axisRect());
+    m_rightTracerLabel->setClipToAxisRect(false);      ///< make visible out of axis rect
+
+    m_rightTracerLabel->setPositionAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    m_rightTracerLabel->position->setTypeX(QCPItemPosition::ptAxisRectRatio);
+    m_rightTracerLabel->position->setTypeY(QCPItemPosition::ptPlotCoords);
+    m_rightTracerLabel->position->setParentAnchorY(m_tracerCandle->position);   ///< y direction anchor to tracer
+    m_rightTracerLabel->position->setCoords(1.0,0);
+
+    m_rightTracerLabel->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    ///make left padding real big to get nice visual effect
+    m_rightTracerLabel->setPadding(QMargins(yAxis->tickLabelPadding(),2,100,2));
+
+    m_rightTracerLabel->setColor(CANDLE_TEXT_QCOLOR_WHITE);
+    m_rightTracerLabel->setBrush(QBrush(CANDLE_CROSSHAIR_QCOLOR));
+    m_rightTracerLabel->setText("");
+
+
+    m_bottomTracerLabel = new QCPItemText(this);
+    ///move text label to legend layer so that it can plot on top of axis rect
+    if (legnedLayer) m_bottomTracerLabel->setLayer(legnedLayer);
+    m_bottomTracerLabel->position->setAxisRect(m_vAxisRect);
+    m_bottomTracerLabel->setClipAxisRect(m_vAxisRect);
+    m_bottomTracerLabel->setClipToAxisRect(false);      ///< make visible out of axis rect
+
+    m_bottomTracerLabel->setPositionAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    m_bottomTracerLabel->position->setTypeX(QCPItemPosition::ptPlotCoords);
+    m_bottomTracerLabel->position->setParentAnchorX(m_tracerCandle->position);   ///< y direction anchor to tracer
+    m_bottomTracerLabel->position->setTypeY(QCPItemPosition::ptAxisRectRatio);
+    m_bottomTracerLabel->position->setCoords(0,1.0);
+
+    m_bottomTracerLabel->setTextAlignment(Qt::AlignCenter);
+    m_bottomTracerLabel->setPadding(QMargins(2,m_vxAxis->labelPadding(),\
+                                       2,m_vxAxis->labelPadding()));
+    m_bottomTracerLabel->setColor(CANDLE_TEXT_QCOLOR_WHITE);
+    m_bottomTracerLabel->setBrush(QBrush(CANDLE_CROSSHAIR_QCOLOR));
+    m_bottomTracerLabel->setText("");
+}
+
+void CandlesticksView::initTickAndGridStyle(QCPAxis* axis)
+{
+    if (Q_NULLPTR == axis) return;
+    axis->setVisible(true);
+    axis->setTickLabels(true);
+    axis->setTicks(true);
+    axis->setSubTicks(false);
+    axis->setBasePen(Qt::NoPen);
+    axis->setTickPen(Qt::NoPen);
+    axis->setTickLabelColor(CANDLE_TEXT_QCOLOR_WHITE);
+    axis->grid()->setPen(CANDLE_GRIDLINE_PEN);
+    //axis->grid()->setSubGridPen(CANDLE_GRIDLINE_PEN);
+    //axis->grid()->setSubGridVisible(true);
+    axis->grid()->setZeroLinePen(CANDLE_GRIDLINE_PEN);
 }
 
 void CandlesticksView::setDataManager(DataManager *manager){
-    //if(!manager){return;}
     m_dataManager = manager;
-    //m_stockCode = m_allStocks.first();
-    //connect(m_dataManager, SIGNAL(historicalDataRead(QString)), this, SLOT(historicalDataRead(QString)), Qt::QueuedConnection);
-    //connect(this, SIGNAL(historicalDataRequested(QString *, int)), m_dataManager, SLOT(readHistoricalData(QString *, int)), Qt::QueuedConnection);
 }
 
 Stock * CandlesticksView::currentStock(){
     return m_curStock;
 }
 
+bool CandlesticksView::isEmpty()
+{
+    return (!m_curStock || m_ohlcData.isNull() || m_ohlcData->isEmpty() || !m_candleChart);
+}
+
+void CandlesticksView::historicalDataRead(Stock *stock){
+    qDebug()<<"--CandlesticksView::historicalDataRead() "<<stock->name();
+    Q_ASSERT(stock);
+    if(!stock || stock->code() != m_stockCodeExpected){return;}
+    m_curStock = stock;
+    m_stockCode = stock->code();
+    m_stockName = stock->name();
+    emit stockChanged(m_stockCode);
+
+    m_ohlcData = stock->ohlcDataContainer();
+    m_candleChart->setData(m_ohlcData);
+
+    m_tradeExtraDataMap = stock->tradeExtraDataMap();
+
+    QSharedPointer<QCPBarsDataContainer> negData, posData;
+    negData.reset(new QCPBarsDataContainer());
+    posData.reset(new QCPBarsDataContainer());
+    QCPFinancialDataContainer::const_iterator it = m_ohlcData->constBegin();
+    while(it != m_ohlcData->constEnd()){
+        TradeExtraData extraData = m_tradeExtraDataMap->value(it->key);
+        if (it->close < it->open){
+            negData->add(QCPBarsData(it->key, extraData.volume));
+        }else{
+            posData->add(QCPBarsData(it->key, extraData.volume));
+        }
+        ++it;
+    }
+    m_volumeNeg->setData(negData);
+    m_volumePos->setData(posData);
+
+    if(!m_tradeExtraDataMap->isEmpty()){
+        m_focusedKey = m_tradeExtraDataMap->lastKey();
+    }
+    adjustAllAndReplot();
+}
+
+void CandlesticksView::showStock(const QString &code){
+    if(code != m_stockCode){
+        m_stockCode = code;
+        m_stockCodeExpected = code;
+        emit historicalDataRequested(&m_stockCodeExpected, 0);
+    }
+}
+
 void CandlesticksView::mouseDoubleClickEvent(QMouseEvent *event){
-    if(!m_curStock){return;}
-    if(m_ohlcDataMap->isEmpty()){return;}
+    QCustomPlot::mouseDoubleClickEvent(event);
+    setTracerAndInfoVisible(!m_tracerVisible);
+}
+void CandlesticksView::mousePressEvent(QMouseEvent *event)
+{
+    QCustomPlot::mousePressEvent(event);
+    if (event->button() == Qt::LeftButton){
+        setCursor(Qt::DragMoveCursor);
+        m_draggingByMouse = true;
+    }
+}
+void CandlesticksView::mouseReleaseEvent(QMouseEvent *event)
+{
+    //qDebug() << "CandlesticksView mouseReleaseEvent";
+    QCustomPlot::mouseReleaseEvent(event);
+    m_draggingByMouse = false;
+    setCursor(Qt::ArrowCursor);
+}
+void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
+    QPoint pos = event->pos();
+    static QPoint lastPos(pos);
 
-    if(!m_infoView){
-        setInfoViewVisible(true);
-        //QPoint bottomLeft = frameGeometry().bottomLeft();
-        //m_infoView->move(QPoint(bottomLeft.x(), bottomLeft.y()-m_infoView->frameGeometry().height()));
-        updateTradeInfoView(event->pos(), true);
+    updateTracerAndInfo(pos);
 
-        //生成鼠标移动事件
-        //QMouseEvent e(QEvent::MouseMove, event->localPos(), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-        //slotMouseMove(&e);
-    }else{
-        bool visible = m_infoView->isVisible();
-        setInfoViewVisible(!visible);
-        if(!visible){
-            updateTradeInfoView(event->pos(), true);
+    if (isEmpty()){
+        lastPos = pos;
+        QCustomPlot::mouseMoveEvent(event);
+        return;
+    }
+    if (m_draggingByMouse)
+    {
+        if (m_candleChart->canDrag(pos.x()-lastPos.x())){
+            QCustomPlot::mouseMoveEvent(event);
+            m_candleChart->setKeyAxisAutoFitGrid();
+            replot();
+        }else{
+            //m_draggingByMouse = false;
+            event->ignore();
         }
     }
-
-    //qDebug()<<QString("--mouseDoubleClickEvent--");
-}
-
-void CandlesticksView::mousePressEvent(QMouseEvent *event){
-    if(!m_curStock){return;}
-    if(m_ohlcDataMap->isEmpty()){return;}
-
-    Q_UNUSED(event)
-    //qDebug()<<QString("--mousePressEvent--");
-}
-
-void CandlesticksView::mouseMoveEvent(QMouseEvent *event){
-    if(!m_curStock){return;}
-    if(m_ohlcDataMap->isEmpty()){return;}
-
-
-    updateTradeInfoView(event->pos());
-    //qDebug()<<QString("--mouseMoveEvent--");
-}
-
-void CandlesticksView::mouseReleaseEvent(QMouseEvent *event){
-    if(!m_curStock){return;}
-    if(m_ohlcDataMap->isEmpty()){return;}
-
-
-    Q_UNUSED(event)
-    //qDebug()<<QString("--mouseReleaseEvent--");
+    lastPos = pos;
 }
 
 void CandlesticksView::wheelEvent(QWheelEvent* event){
-    if(!m_curStock){return;}
-
+    QCustomPlot::wheelEvent(event);
     int wheelSteps = event->delta()/120.0;
-    if(event->modifiers() == Qt::ControlModifier){
-        //CTRL+滚轮 进制缩放
-        double factor;
-        factor = qPow(0.85, wheelSteps);
-        xAxis->scaleRange(factor, xAxis->pixelToCoord(event->pos().x()));
-        replot();
+    zoom(1-wheelSteps*CANDLE_BASE_ZOOM_RATIO);
+    //emit historicalDataRequested(&m_stockCodeExpected, -wheelSteps);
 
-        event->accept();
-    }else{
-        event->ignore();
-    }
+    updateTracerAndInfo(event->pos());
+}
 
-    Q_ASSERT(m_dataManager);
-    //m_candlesticks->clearData();
-    //m_dataManager->readHistoricalData(&m_stockCode, -wheelSteps);
-    m_stockCodeExpected = m_stockCode;
-    emit historicalDataRequested(&m_stockCodeExpected, -wheelSteps);
-
+void CandlesticksView::resizeEvent(QResizeEvent *event)
+{
+    QCustomPlot::resizeEvent(event);
+    if (isEmpty()) {return;}
+    double factor = (1.0*size().width())/event->oldSize().width();
+    m_candleChart->adjustKeyRangeOnResize(factor);
+    replot();
 }
 
 void CandlesticksView::keyPressEvent(QKeyEvent *event){
-    if(!m_curStock){return;}
-    if(event->key() != Qt::Key_Escape && m_ohlcDataMap->isEmpty()){return;}
+    QCustomPlot::keyPressEvent(event);
 
+    if(event->key() != Qt::Key_Escape && isEmpty()){return;}
 
     switch (event->key()) {
     case Qt::Key_Escape:
     {
-        if(m_infoView && m_infoView->isVisible()){
-            //隐藏交易信息小窗口
-            setInfoViewVisible(false);
-        }else{
-            emit escape();
-        }
+        emit escape();
     }
         break;
-
     case Qt::Key_Up:
-    case Qt::Key_Down:
+    case Qt::Key_Plus:
     {
-        //上箭头：放大， 下箭头：缩小
-        double steps = (event->key()==Qt::Key_Up)?1:-1;
-        double factor = qPow(0.85, steps);
-        xAxis->scaleRange(factor, m_focusedKey);
-        replot();
-
+        zoom(1-CANDLE_BASE_ZOOM_RATIO);
         event->accept();
     }
         break;
-
-    case Qt::Key_Left:
-    case Qt::Key_Right:
+    case Qt::Key_Minus:
+    case Qt::Key_Down:
     {
-        setInfoViewVisible(true);
-
-        //左右箭头：左右移动十字光标，按住SHIFT平移
-        if((event->key() == Qt::Key_Left && m_focusedKey == m_tradeExtraDataMap->firstKey())
-                || (event->key() == Qt::Key_Right && m_focusedKey == m_tradeExtraDataMap->lastKey())
-                ){
-            return;
-        }
-
-        QMap<double, TradeExtraData>::const_iterator curkeyIT = m_tradeExtraDataMap->lowerBound(m_focusedKey);
-        curkeyIT = (event->key() == Qt::Key_Left)?(--curkeyIT):(++curkeyIT);
-        m_focusedKey = curkeyIT.key();
-        if((event->key() == Qt::Key_Left) && m_focusedKey < m_leftKey){
-            m_focusedKey = m_leftKey;
-        }
-        if((event->key() == Qt::Key_Right) && m_focusedKey > m_rightKey){
-            m_focusedKey = m_rightKey;
-        }
-
-//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_leftKey).time).toString("L: MM-dd");
-//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_focusedKey).time).toString("C: MM-dd");
-//        qDebug()<<QDateTime::fromTime_t( m_tradeExtraDataMap->value(m_rightKey).time).toString("R: MM-dd");
-
-        //移动坐标轴
-        if(event->modifiers() == Qt::ShiftModifier
-                || (isEqual(m_focusedKey, m_leftKey) && event->key() == Qt::Key_Left)
-                || (isEqual(m_focusedKey, m_rightKey) && event->key() == Qt::Key_Right)
-                ){
-
-            double diff = m_candlesticks->width();
-            if(event->key() == Qt::Key_Left){diff = -diff;}
-            xAxis->setRange(xAxis->range().lower+diff, xAxis->range().upper+diff);
-            replot();
-        }
-
-
-        //更新显示交易信息
-        if(!m_infoView){
-            createTradeInfoView();
-            setInfoViewVisible(true);
-            m_infoView->move(0, 0);
-            m_focusedKey = m_rightKey;
-        }
-        QCPFinancialData ohlcData = m_ohlcDataMap->value(m_focusedKey);
-        if(isZero(ohlcData.open)){return;}
-        updateTradeInfoView(m_focusedKey, ohlcData.close);
-
-        QPointF pos;
-        m_candlesticks->coordsToPoint(m_focusedKey, ohlcData.close, pos);
-        updateCrossCurvePoint(pos);
-
-
-        //updateVolumeYAxisRange();
-
+        zoom(1+CANDLE_BASE_ZOOM_RATIO);
+        event->accept();
     }
         break;
-
-
+    case Qt::Key_Left:
+    {
+        int step = -1;
+        if(event->modifiers() == Qt::ControlModifier) step *= 30;
+        moveTracer(step);
+    }
+        break;
+    case Qt::Key_Right:
+    {
+        int step = 1;
+        if(event->modifiers() == Qt::ControlModifier) step *= 30;
+        moveTracer(step);
+    }
+        break;
     default:
         break;
     }
-
-
 }
 
-
-void CandlesticksView::intervalStatistics(){
-    //TODO
-}
-
-void CandlesticksView::intervalZoomin(){
-    //TODO
-}
-
-void CandlesticksView::contextMenuRequest(QPoint pos)
+double CandlesticksView::getZoomCenter()
 {
-    QMenu *menu = new QMenu(this);
-    menu->setAttribute(Qt::WA_DeleteOnClose);
-
-    menu->addAction("Interval Statistics", this, SLOT(intervalStatistics()));
-    menu->addAction("Interval Zoomin", this, SLOT(intervalZoomin()));
-
-    menu->popup(mapToGlobal(pos));
+    return m_tracerCandle->position->coords().x();
 }
 
-void CandlesticksView::setAxisRange2(const QCPRange &newRange, const QCPRange &oldRange){
+void CandlesticksView::zoom(double zoomFactor)
+{
+    if (isEmpty()) return;
 
-    QCPRange valueRange(0,0), leftBoxRange(0,0), rightBoxRange(0,0);
-    m_candlesticks->getBoundValuesInVisibleRange(valueRange, leftBoxRange, rightBoxRange);
-    if(m_yAxis->range().lower != valueRange.lower || m_yAxis->range().upper != valueRange.upper){
-        m_yAxis->setRange(valueRange);
-    }
-
-    double lower = xAxis->range().lower, upper = xAxis->range().upper;
-
-    if(oldRange.lower < xAxis->range().lower){
-        qDebug()<<"Zoomin";
-
-        if(leftBoxRange.lower < xAxis->range().lower && leftBoxRange.upper > xAxis->range().lower){
-            lower = leftBoxRange.upper;
-            //xAxis->setRangeLower(leftBoxRange.upper);
-        }
-
-        if(rightBoxRange.upper > xAxis->range().upper && rightBoxRange.lower < xAxis->range().upper){
-            upper = rightBoxRange.lower;
-            //xAxis->setRangeUpper(rightBoxRange.lower);
-            qDebug()<<"-i2-";
-        }
-
-
-
-
-    }else{
-        qDebug()<<"Zoomout";
-
-
-
-        if((leftBoxRange.upper < xAxis->range().lower && leftBoxRange.upper > xAxis->range().lower) || leftBoxRange.lower < xAxis->range().lower){
-            lower = leftBoxRange.lower;
-            // xAxis->setRangeLower(leftBoxRange.upper);
-        }
-
-        double minX = m_tradeExtraDataMap->firstKey() - m_candlesticks->width();
-        if(lower < minX){
-            lower = minX;
-        }
-
-        if((rightBoxRange.upper > xAxis->range().upper && rightBoxRange.lower < xAxis->range().upper) || rightBoxRange.upper < xAxis->range().upper){
-            upper = rightBoxRange.upper;
-            //xAxis->setRangeUpper(rightBoxRange.lower);
-        }
-    }
-
-    if(lower != xAxis->range().lower || upper != xAxis->range().upper){
-        xAxis->setRange(lower, upper);
-    }
-
-
-}
-
-void CandlesticksView::setAxisRange(){
-    //qDebug()<<"----setAxisRange()------";
-
-    double minValue = 0, maxValue = 0;
-    uint itemCount = 0;
-    m_candlesticks->getBoundValuesInVisibleRange(minValue, maxValue, itemCount, &m_leftKey, &m_rightKey);
-    if(m_yAxis->range().lower != minValue || m_yAxis->range().upper != maxValue){
-        m_yAxis->setRange(minValue, maxValue);
-    }
-
-    double xAxisLower = xAxis->range().lower;
-    double xAxisUpper = xAxis->range().upper;
-
-    double leftBoxRangeLlower = m_leftKey-m_candlesticks->width()*0.5;
-    double leftBoxRangeUpper = m_leftKey+m_candlesticks->width()*0.5;
-    double rightBoxRangeLlower = m_rightKey-m_candlesticks->width()*0.5;
-    double rightBoxRangeUpper = m_rightKey+m_candlesticks->width()*0.5;
-    if( ((m_leftKey == m_tradeExtraDataMap->firstKey()) && (xAxisLower < leftBoxRangeLlower))){
-        xAxis->setRangeLower(leftBoxRangeLlower);
-    }
-    if(m_rightKey == m_tradeExtraDataMap->lastKey() && xAxisUpper > rightBoxRangeUpper){
-        xAxis->setRangeUpper(rightBoxRangeUpper);
-    }
-
-    if( (xAxisLower > leftBoxRangeLlower && xAxisLower <= leftBoxRangeUpper)){
-        //TODO:显示不完整
-    }
-
-    if( (xAxisUpper >= rightBoxRangeLlower && xAxisUpper < rightBoxRangeUpper) ){
-        //TODO:显示不完整
-    }
-
-
-    updateVolumeYAxisRange();
-
-}
-
-
-void CandlesticksView::drawCandlesticks(){
-    QFont titleFont = font();
-    //titleFont.setPointSize(10);
-    m_plotTitle = new QCPPlotTitle(this, "Stock");
-    m_plotTitle->setFont(titleFont);
-    plotLayout()->insertRow(0);
-    plotLayout()->addElement(0, 0, m_plotTitle);
-
-    m_candlesticks = new QCPFinancial(xAxis, yAxis);
-    addPlottable(m_candlesticks);
-    m_candlesticks->setName("Candlestick");
-    m_candlesticks->setChartStyle(QCPFinancial::csCandlestick);
-
-
-    //    readData("601398");
-
-    double boxWith = 0.85;
-    m_candlesticks->setWidth(boxWith);
-    m_candlesticks->setTwoColored(true);
-    m_candlesticks->setBrushPositive(QColor(255, 0, 0));
-    m_candlesticks->setBrushNegative(QColor(0, 255, 0));
-    m_candlesticks->setPenPositive(QPen(QColor(255, 0, 0)));
-    m_candlesticks->setPenNegative(QPen(QColor(0, 255, 0)));
-    m_candlesticks->setSelectable(false);
-
-    xAxis->setBasePen(Qt::NoPen);
-    xAxis->setTickLabels(false);
-    xAxis->setTicks(true);
-    xAxis->setAutoTicks(false);
-    xAxis->setAutoTickStep(false);
-    xAxis->setAutoSubTicks(false);
-    xAxis->setTickStep(1);
-    //xAxis->axisRect()->axis(QCPAxis::atBottom)->setTickLabelType(QCPAxis::ltDateTime);
-    //xAxis->axisRect()->axis(QCPAxis::atBottom)->setDateTimeFormat("MM-dd");
-    //xAxis->setScaleType(QCPAxis::stLinear);
-
-    m_yAxis = yAxis;
-    yAxis->setTickLabels(false);
-    yAxis->setTicks(true);
-    yAxis->setAutoTicks(true);
-    yAxis->setAutoTickStep(true);
-    yAxis2->setVisible(true);
-    yAxis2->grid()->setVisible(true);
-    yAxis->setVisible(false);
-
-
-    QCPPlotTitle *volPlotTitle = new QCPPlotTitle(this, "Volume");
-    volPlotTitle->setFont(titleFont);
-    plotLayout()->insertRow(plotLayout()->rowCount());
-    plotLayout()->addElement(plotLayout()->rowCount()-1, 0, volPlotTitle);
-
-    volumeAxisRect = new QCPAxisRect(this);
-    plotLayout()->insertRow(plotLayout()->rowCount());
-    plotLayout()->addElement(plotLayout()->rowCount()-1, 0, volumeAxisRect);
-    volumeAxisRect->setMaximumSize(QSize(QWIDGETSIZE_MAX, 100));
-    QCPAxis *volumeBottomAxis = volumeAxisRect->axis(QCPAxis::atBottom);
-    volumeBottomAxis->setLayer("axes");
-    volumeBottomAxis->grid()->setLayer("grid");
-    plotLayout()->setRowSpacing(0);
-    volumeAxisRect->setAutoMargins(QCP::msLeft|QCP::msRight|QCP::msBottom);
-    volumeAxisRect->setMargins(QMargins(0, 0, 0, 0));
-
-    m_volumePos = new QCPBars(volumeBottomAxis, volumeAxisRect->axis(QCPAxis::atLeft));
-    m_volumeNeg = new QCPBars(volumeBottomAxis, volumeAxisRect->axis(QCPAxis::atLeft));
-    addPlottable(m_volumePos);
-    addPlottable(m_volumeNeg);
-    m_volumePos->setWidth(boxWith);
-    m_volumePos->setPen(Qt::NoPen);
-    m_volumePos->setBrush(QColor(255, 0, 0));
-    m_volumeNeg->setWidth(boxWith);
-    m_volumeNeg->setPen(Qt::NoPen);
-    m_volumeNeg->setBrush(QColor(0, 255, 0));
-
-
-    connect(xAxis, SIGNAL(rangeChanged(QCPRange)), volumeBottomAxis, SLOT(setRange(QCPRange)));
-    //connect(volumeBottomAxis, SIGNAL(rangeChanged(QCPRange)), xAxis, SLOT(setRange(QCPRange)));
-
-
-    volumeBottomAxis->setTickLabels(false);
-    volumeBottomAxis->setTicks(false);
-    volumeBottomAxis->setAutoTicks(false);
-    volumeBottomAxis->setAutoTickStep(false);
-    volumeBottomAxis->setAutoSubTicks(false);
-    volumeBottomAxis->setTickStep(1);
-    //volumeBottomAxis->setTickLabelType(QCPAxis::ltDateTime);
-    //volumeBottomAxis->setDateTimeSpec(Qt::UTC);
-    //volumeBottomAxis->setDateTimeFormat("MM-dd");
-    //volumeBottomAxis->setTickLabelRotation(15);
-
-    m_volumeLeftAxis = volumeAxisRect->axis(QCPAxis::atLeft);
-    QCPAxis *volumeRightAxis = volumeAxisRect->axis(QCPAxis::atRight);
-    connect(m_volumeLeftAxis, SIGNAL(rangeChanged(QCPRange)), volumeRightAxis, SLOT(setRange(QCPRange)));
-
-    m_volumeLeftAxis->setVisible(false);
-    volumeRightAxis->setVisible(true);
-    volumeRightAxis->setAutoTickCount(4);
-
-    QCPMarginGroup *group = new QCPMarginGroup(this);
-    axisRect()->setMarginGroup(QCP::msLeft|QCP::msRight, group);
-    volumeAxisRect->setMarginGroup(QCP::msLeft|QCP::msRight, group);
-
-
-    //    readData("601398");
-    //    rescaleAxes();
-    //    xAxis->scaleRange(0.015, xAxis->range().upper);
-    //    m_focusedKey = m_tradeExtraData->lastKey();
-
-}
-
-void CandlesticksView::createTradeInfoView(){
-    if(m_infoView){return;}
-    m_infoView = new TradeSummaryInfoView(this);
-    m_infoView->setVisible(true);
-    connect(m_infoView, SIGNAL(closed(bool)), this, SLOT(setInfoViewVisible(bool)));
-    QPoint bottomLeft = frameGeometry().bottomLeft();
-    m_infoView->move(QPoint(bottomLeft.x(), bottomLeft.y()-m_infoView->frameGeometry().height()));
-
-
-    m_horizontalLine = new QCPItemLine(this);
-    //addItem(m_horizontalLine);
-    //m_horizontalLine->setVisible(true);
-    m_verticalLine = new QCPItemLine(this);
-    //addItem(m_verticalLine);
-    //m_verticalLine->setVisible(true);
-
-}
-
-void CandlesticksView::updateTradeInfoView(const QPoint &pos, bool updateWhenInvisible){
-    double posKey = 0, value = 0;
-    if(m_candlesticks->pointToCoords(pos, posKey, value)){
-        m_focusedKey = posKey;
-    }
-
-    double key = 0, posValue = 0;
-    QCPAxisRect *element = qobject_cast<QCPAxisRect*>(layoutElementAt(pos));
-    if(element){
-        element->pointToCoords(pos, key, posValue);
-    }
-    updateCrossCurvePoint(pos);
-
-    updateTradeInfoView(m_focusedKey, posValue, updateWhenInvisible);
-}
-
-void CandlesticksView::updateTradeInfoView(double curKey, double curValue, bool updateWhenInvisible){
-    if(!m_infoView){return;}
-    if(!m_infoView->isVisible() && !updateWhenInvisible){return;}
-
-    QCPFinancialData ohlcData = m_ohlcDataMap->value(m_focusedKey);
-    if(ohlcData.open == 0){return;}
-    TradeExtraData extraData = m_tradeExtraDataMap->value(m_focusedKey);
-    m_infoView->updateTradeInfo(ohlcData, extraData, curValue, m_stockName);
-    //    xAxis->setCrossCurvePoint(m_focusedKey, curValue);
-    //    yAxis->setCrossCurvePoint(m_focusedKey, curValue);
-
-    //    m_horizontalLine->start->setCoords(xAxis->range().lower, curValue);
-    //    m_horizontalLine->end->setCoords(xAxis->range().upper, curValue);
-    //    m_verticalLine->start->setCoords(curKey, m_yAxis->range().lower);
-    //    m_verticalLine->end->setCoords(curKey, m_yAxis->range().upper);
-    //    replot();
-}
-
-void CandlesticksView::updateCrossCurvePoint(const QPointF &pos){
-    for(int i=0; i < axisRectCount(); i++){
-        axisRect(i)->setCrossCurvePoint(pos);
-    }
-    //axisRect(0)->setCrossCurvePoint(pos);
-    //yAxis->setCrossCurvePoint(pos);
-    replot();
-}
-
-void CandlesticksView::setInfoViewVisible(bool visible){
-
-    if(m_infoView){
-        m_infoView->setVisible(visible);
-        //m_horizontalLine->setVisible(visible);
-        //m_verticalLine->setVisible(visible);
-    }else if(visible){
-        createTradeInfoView();
-    }
-    //m_candlesticks->setCrossCurveVisible(visible);
-    //xAxis->setCrossCurveVisible(visible);
-    //yAxis2->setCrossCurveVisible(visible);
-
-    for(int i=0; i < axisRectCount(); i++){
-        axisRect(i)->setCrossCurveVisible(visible);
+    if (false == \
+            m_candleChart->zoom(zoomFactor, getZoomCenter()) ){
+        //can not zoom
+        return;
     }
     replot();
 }
 
-void CandlesticksView::updateVolumeYAxisRange(){
-    if(m_ohlcDataMap->isEmpty()){return;}
+void CandlesticksView::adjustAllAndReplot()
+{
+    rescaleAxes();
+    m_candleChart->initAdjustAll();
+    updateTracerAndInfo(QPoint(0,0));
+    replot();
+}
+
+void CandlesticksView::adjustVolumeYRange(){
+
+    if (isEmpty()) return;
 
     double maxYValue = std::numeric_limits<double>::min();
-    TradeExtraDataMap::const_iterator leftkeyIT = m_tradeExtraDataMap->lowerBound(m_leftKey);
-    TradeExtraDataMap::const_iterator rightkeyIT = m_tradeExtraDataMap->lowerBound(m_rightKey);
+    TradeExtraDataMap::const_iterator leftkeyIT = m_tradeExtraDataMap->lowerBound(xAxis->range().lower);
+    TradeExtraDataMap::const_iterator rightkeyIT = m_tradeExtraDataMap->lowerBound(xAxis->range().upper);
     TradeExtraDataMap::const_iterator it;
     for (it = leftkeyIT; it != rightkeyIT; ++it)
     {
@@ -566,52 +497,108 @@ void CandlesticksView::updateVolumeYAxisRange(){
             maxYValue = currentVol;
         }
     }
-    m_volumeLeftAxis->setRange(0, maxYValue);
+    maxYValue += CANDLE_BASE_MARGIN_RATIO*maxYValue;
+    m_vyAxis->setRange(0, maxYValue);
 }
 
-void CandlesticksView::historicalDataRead(Stock *stock){
-    //qDebug()<<"--CandlesticksView::historicalDataRead() "<<stock->name();
-    Q_ASSERT(stock);
-    if(!stock || stock->code() != m_stockCodeExpected){return;}
-    m_curStock = stock;
-    m_stockCode = stock->code();
-    m_stockName = stock->name();
-    m_plotTitle->setText(m_stockName);
-    emit stockChanged(m_stockCode);
-
-    m_ohlcDataMap = stock->ohlcDataMap();
-    m_candlesticks->setData(m_ohlcDataMap, true); //TODO:optimize
-
-    QVector< double > * futuresDeliveryDates = stock->futuresDeliveryDates();
-    xAxis->setTickVector(*futuresDeliveryDates);
-
-    m_tradeExtraDataMap = stock->tradeExtraDataMap();
-
-    m_volumeNeg->clearData();
-    m_volumePos->clearData();
-    for(QMap<double, TradeExtraData>::const_iterator it = m_tradeExtraDataMap->constBegin(); it!=m_tradeExtraDataMap->constEnd(); it++){
-        QCPFinancialData ohlcData = m_ohlcDataMap->value(it.key());
-        TradeExtraData extraData = it.value();
-        (ohlcData.close < ohlcData.open ? m_volumeNeg : m_volumePos)->addData(it.key(), (extraData.volume));
-    }
-
-    rescaleAxes();
-    //xAxis->scaleRange(0.015, xAxis->range().upper);
-    if(!m_tradeExtraDataMap->isEmpty()){
-        m_focusedKey = m_tradeExtraDataMap->lastKey();
-    }
-
+void CandlesticksView::setTracerAndInfoVisible(bool visible)
+{
+    m_tracerVisible = visible;
+    m_tracerCandle->setVisible(visible);
+    m_tracerVolume->setVisible(visible);
     replot();
+    //TODOs
 }
 
-void CandlesticksView::showCandlesticks(const QString &code){
-    if(code != m_stockCode){
-        m_stockCode = code;
-        //m_dataManager->readHistoricalData(&m_stockCode, wheelSteps);
-        m_stockCodeExpected = code;
-        emit historicalDataRequested(&m_stockCodeExpected, 0);
+void CandlesticksView::moveTracer(const int& step)
+{
+    double oldKey = m_tracerCandle->position->coords().x();
+    double newKey = oldKey, newValue;
+    double volumeValue = -100;
+    if (m_candleChart->move(oldKey, step, newKey,newValue))
+    {
+        updateTracerAndInfoInner(newKey, newValue,volumeValue,true, false);
     }
 }
 
+void CandlesticksView::updateTracerAndInfo(const QPoint& pos)
+{
+    double volumeValue = m_vyAxis->pixelToCoord(pos.y());
+    double candleKey = xAxis->pixelToCoord(pos.x());
+    double candleValue = yAxis->pixelToCoord(pos.y());
+    double candleFocusKey = candleKey;
+    double candleFocusValue = candleValue;
+    if (m_candleChart->getFocusKeyAndValue\
+            (pos, candleFocusKey, candleFocusValue)){
+        //can found focus
+    }
 
+    bool bInCandle = false;
+    bool bInVolume = false;
+    if (this->axisRect()->rect().contains(pos)) bInCandle = true;
+    else if (m_vAxisRect->rect().contains(pos)) bInVolume = true;
+    updateTracerAndInfoInner(candleFocusKey,candleValue,volumeValue,bInCandle,bInVolume);
+}
 
+void CandlesticksView::updateTracerAndInfoInner(const double& key, const double& candleValue,\
+                              const double& volumeValue, const bool& bInCandle,\
+                              const bool& bInVolume)
+{
+
+    m_tracerCandle->setVisible(m_tracerVisible);
+    m_tracerVolume->setVisible(m_tracerVisible);
+    m_leftTracerLabel->setVisible(true);
+    m_rightTracerLabel->setVisible(true);
+    m_bottomTracerLabel->setVisible(true);
+
+    //更新十字光标
+    m_tracerCandle->position->setCoords(key,candleValue);
+    //必须要设置position的axes,setCoords才能对上,否则会默认使用qcustomplot的坐标轴!!!
+    m_tracerVolume->position->setCoords(key,volumeValue);
+//    m_tracerVolume->position->\
+//            setPixelPosition(QPointF(m_tracerCandle->position->pixelPosition().x(),pos.y()));
+
+    //更新指示文字，首先判断光标位置
+
+    //如果处于光标处于K线图内
+    if (bInCandle)
+    {
+        QCPCandleTickerNum* ticker = dynamic_cast <QCPCandleTickerNum*>(yAxis->ticker().data());
+        if (0 != ticker)
+        {
+            m_leftTracerLabel->setText(\
+                        ticker->getTickLabel(candleValue, this->locale(),
+                                             yAxis->numberFormat().at(0), yAxis->numberPrecision()));
+        }
+    }
+    //如果光标处于volume图内
+    if (bInVolume)
+    {
+        QCPCandleTickerNum* ticker = dynamic_cast <QCPCandleTickerNum*>(m_vyAxis->ticker().data());
+        if (0 != ticker)
+        {
+            m_leftTracerLabel->setText(\
+                        ticker->getTickLabel(volumeValue, this->locale(),
+                                             m_vyAxis->numberFormat().at(0), m_vyAxis->numberPrecision()));
+        }
+    }
+
+    m_rightTracerLabel->setText(m_leftTracerLabel->text());
+    QCPCandleTickerDateTime * bTicker = dynamic_cast <QCPCandleTickerDateTime*>(m_vxAxis->ticker().data());
+    if (0 != bTicker)
+    {
+        m_bottomTracerLabel->setText(bTicker->getTickLabel(key, this->locale()));
+    }
+
+    if (!bInCandle && !bInVolume)
+    {
+        m_tracerCandle->setVisible(false);
+        m_tracerVolume->setVisible(false);
+        m_leftTracerLabel->setVisible(false);
+        m_rightTracerLabel->setVisible(false);
+        m_bottomTracerLabel->setVisible(false);
+    }
+    replot();
+
+    //TODOs
+}

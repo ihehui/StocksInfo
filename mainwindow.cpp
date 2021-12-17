@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
 //#include <QtConcurrent/QtConcurrent>
 
@@ -151,7 +151,7 @@ void MainWindow::networkError(const QUrl &url, const QString &errorString){
 
 void MainWindow::stockActivated(Stock *stock){
     qDebug()<<"stockActivated:"<<stock->name();
-    ui->tabCandlestick->showCandlesticks(stock->code());
+    ui->tabCandlestick->showStock(stock->code());
     ui->stackedWidget->setCurrentWidget(ui->pageTradeInfo);
     ui->tabCandlestick->setFocus();
 

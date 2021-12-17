@@ -4,99 +4,93 @@
 #include <QWidget>
 
 #include "qcustomplot.h"
+#include "qcpcandlechart.h"
+#include "qcpcandleticker.h"
 #include "tradesummaryinfoview.h"
 #include "common.h"
 #include "datamanager.h"
-
 
 class CandlesticksView : public QCustomPlot
 {
     Q_OBJECT
 public:
     explicit CandlesticksView(QWidget *parent = 0);
-    ~CandlesticksView();
 
     void setDataManager(DataManager *manager);
     Stock * currentStock();
-
+    //data
 signals:
     void historicalDataRequested(QString *code, int offset);
     void stockChanged(const QString &code);
-    void escape();
-
-
-private slots:
-    void mouseDoubleClickEvent(QMouseEvent *event);
-    void mousePressEvent(QMouseEvent *event);
-    void mouseMoveEvent(QMouseEvent *event);
-    void mouseReleaseEvent(QMouseEvent *event);
-    void wheelEvent(QWheelEvent *event);
-    void keyPressEvent(QKeyEvent *event);
-
-
-    //区间统计
-    void intervalStatistics();
-
-    //区间放大
-    void intervalZoomin();
-
-    //右键
-    void contextMenuRequest(QPoint pos);
-
-    //设置坐标轴范围
-    void setAxisRange2(const QCPRange &newRange, const QCPRange &oldRange);
-    void setAxisRange();
-
-    //绘制蜡烛图
-    void drawCandlesticks();
-
-
-    //生成交易信息小窗口和十字光标
-    void createTradeInfoView();
-
-    //更新交易信息小窗口内容及十字光标
-    void updateTradeInfoView(const QPoint &pos, bool updateWhenInvisible = false);
-    void updateTradeInfoView(double curKey, double curValue, bool updateWhenInvisible = false);
-    void updateCrossCurvePoint(const QPointF &pos);
-
-    //显示及交易信息小窗口和十字光标是否可见
-    void setInfoViewVisible(bool visible);
-
-    //更新成交量柱坐标轴范围
-    void updateVolumeYAxisRange();
-
 public slots:
     void historicalDataRead(Stock *stock);
-    void showCandlesticks(const QString &code);
-
-
+    void showStock(const QString &code);
+private:
+    bool isEmpty();
 private:
     DataManager *m_dataManager;
     Stock *m_curStock;
     QString m_stockCode; //证券代码
     QString m_stockName; //证券名称
     QString m_stockCodeExpected; //证券代码
-
-
-//    PeriodType m_periodType; //数据周期类型
-    QCPFinancialDataMap *m_ohlcDataMap; //基本交易数据
+    QSharedPointer<QCPFinancialDataContainer> m_ohlcData; //基本交易数据
     typedef QMap<double, TradeExtraData> TradeExtraDataMap;
     TradeExtraDataMap *m_tradeExtraDataMap; //交易数据
 
-    QCPPlotTitle *m_plotTitle;
-    QCPFinancial *m_candlesticks; //绘图类
-    QCPAxis *m_yAxis; //Y轴
-    QCPItemLine *m_horizontalLine, *m_verticalLine; //十字光标
+    //candle chart
+private:
+    void initCandlesticks();
+    void initTickAndGridStyle(QCPAxis* axis);
+    void initTracer(QCPItemTracer* tracer);
+    void initTracerText();
 
-    QCPAxisRect *volumeAxisRect;
+    double getFocusKey(const QPointF& point);
+    QPointF getFocusPoint(const double& key);
+
+    double getZoomCenter();
+
+private slots:
+    void zoom(double zoomFactor);
+    void adjustAllAndReplot();
+    void adjustVolumeYRange();
+private:
+    QCPCandleChart *m_candleChart; //绘图类
+    QCPAxisRect* m_vAxisRect;
     QCPBars *m_volumePos; //成交量柱
     QCPBars *m_volumeNeg;
-    QCPAxis *m_volumeLeftAxis;
+    QCPAxis *m_vxAxis, *m_vyAxis;
 
-    TradeSummaryInfoView *m_infoView; //交易信息小窗口
+    //control
+signals:
+    void escape();
+protected:
+    void mouseDoubleClickEvent(QMouseEvent *event);
+    void mousePressEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
+    void mouseMoveEvent(QMouseEvent *event);
+    void wheelEvent(QWheelEvent *event);
+    void keyPressEvent(QKeyEvent *event);
+    void resizeEvent(QResizeEvent *event);
+private:
+    bool m_draggingByMouse;
     double m_leftKey, m_focusedKey, m_rightKey; //X轴的左中右坐标
 
+    //indicator
+    //cross and info view
+private:
+    QCPItemTracer* m_tracerCandle, *m_tracerVolume;
+    bool m_tracerVisible;
 
+    QCPItemText* m_leftTracerLabel, *m_rightTracerLabel;
+    QCPItemText* m_leftVLabel, *m_rightVLabel, *m_bottomTracerLabel;
+private slots:
+    void setTracerAndInfoVisible(bool visible=true);
+private:
+    void updateTracerAndInfo(const QPoint& pos);
+    void updateTracerAndInfoInner(const double& key, const double& candleValue,\
+                                  const double& volumeValue, const bool& bInCandle,\
+                                  const bool& bInVolume);
+    void moveTracer(const int& step);
 };
 
 #endif // CANDLESTICKSVIEW_H
